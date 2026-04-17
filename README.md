@@ -34,7 +34,10 @@ Available MCP tools:
   their Bitbucket workspace and supplies its `client_id`.
 - **Token storage:** encrypted file under the user's config directory.
 
-## Quick start (forward-looking — not all wired up yet)
+## Quick start
+
+For a complete step-by-step walkthrough (OAuth consumer registration,
+config file paths, MCP client wiring), see [docs/setup.md](docs/setup.md).
 
 Distributed git-only for now — install from source:
 
