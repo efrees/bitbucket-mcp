@@ -11,11 +11,14 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AppConfig } from "../config.js";
 import type { AuthSession } from "../auth/session.js";
 import type { BitbucketHttpClient } from "../bitbucket/http-client.js";
+import * as createPrComment from "./create-pr-comment.js";
+import * as createPrInlineComment from "./create-pr-inline-comment.js";
 import * as getPullRequest from "./get-pull-request.js";
 import * as getPullRequestDiff from "./get-pull-request-diff.js";
 import * as getPullRequestDiffstat from "./get-pull-request-diffstat.js";
 import * as listPullRequestComments from "./list-pull-request-comments.js";
 import * as listPullRequests from "./list-pull-requests.js";
+import * as replyToPrComment from "./reply-to-pr-comment.js";
 
 export interface ToolContext {
   readonly config: AppConfig;
@@ -32,9 +35,16 @@ export interface ToolContext {
 }
 
 export function registerTools(server: McpServer, ctx: ToolContext): void {
+  // Read-side tools (always on).
   listPullRequests.register(server, ctx);
   getPullRequest.register(server, ctx);
   getPullRequestDiff.register(server, ctx);
   getPullRequestDiffstat.register(server, ctx);
   listPullRequestComments.register(server, ctx);
+
+  // Write-side tools — handlers call requireWritesAllowed(ctx) at the top,
+  // so they are safe to register even when writes are disabled.
+  createPrComment.register(server, ctx);
+  replyToPrComment.register(server, ctx);
+  createPrInlineComment.register(server, ctx);
 }
