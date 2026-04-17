@@ -13,6 +13,7 @@ import type { AuthSession } from "../auth/session.js";
 import type { BitbucketHttpClient } from "../bitbucket/http-client.js";
 import * as getPullRequest from "./get-pull-request.js";
 import * as getPullRequestDiff from "./get-pull-request-diff.js";
+import * as getPullRequestDiffstat from "./get-pull-request-diffstat.js";
 import * as listPullRequests from "./list-pull-requests.js";
 
 export interface ToolContext {
@@ -25,4 +26,5 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
   listPullRequests.register(server, ctx);
   getPullRequest.register(server, ctx);
   getPullRequestDiff.register(server, ctx);
+  getPullRequestDiffstat.register(server, ctx);
 }
