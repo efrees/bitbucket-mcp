@@ -78,6 +78,22 @@ When a new MCP tool is added, update both its module under `src/tools/` (once
 that directory exists) *and* the relevant section of `docs/bitbucket-api.md`
 if a new endpoint is being consumed.
 
+## Docs stay current — or get deleted
+
+Stale documentation is actively harmful here. The only thing worse than docs
+that are too long is docs that are wrong. When working in this repo:
+
+- **Update docs in the same commit as the code change that invalidates them.**
+  If you rename a function referenced in [docs/bitbucket-api.md](docs/bitbucket-api.md), the rename and the doc
+  edit are one atomic commit — not a TODO for later.
+- **ROADMAP.md, CLAUDE.md, and docs/ are code.** Treat them with the same
+  "keep it accurate" standard as `src/`. Open questions that get resolved
+  should be struck through or moved, not left dangling.
+- **Prefer deletion over stale content.** If a section isn't being kept
+  current and isn't load-bearing, delete it. An accurate short doc beats a
+  half-right long one.
+- **If you notice drift, fix it immediately or flag it.** Drift compounds.
+
 ## Things to watch out for
 
 - **stdout is reserved for MCP framing.** All logging goes to stderr. Any
