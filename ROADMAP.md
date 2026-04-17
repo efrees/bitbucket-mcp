@@ -88,7 +88,7 @@ These don't block Phase 0, but I'll need answers before the relevant phase
 ships. Flagging them here so they don't get lost.
 
 1. **CI host** — Run CI on GitHub Actions or Bitbucket Pipelines? (Phase 0)
-2. **Distribution** — Publish to npm as `bitbucket-mcp`, or keep it as a git-installable tool only? Affects how users wire it into their MCP client config. (Phase 1)
+2. ~~**Distribution** — Publish to npm as `bitbucket-mcp`, or keep it as a git-installable tool only?~~ **Resolved: git-only for now.** Users install via `git clone` + `npm install` + `npm run build`, then point their MCP client at the built `dist/index.js`. Revisit if/when the tool stabilizes enough for an npm release.
 3. **Encryption key source** — For the encrypted token file, do we derive the key from (a) a machine-specific value only (transparent, no prompt), (b) a user passphrase (prompted on each `login` and on first refresh after process start), or (c) both? (Phase 1)
 4. **Diff size cap** — What's the default max diff size we'll return inline before forcing the agent to fetch the diffstat instead? Suggest 250 KB. (Phase 2)
 5. **Inline comment line semantics** — Bitbucket distinguishes `inline.to` (new file line) and `inline.from` (old file line). For the MCP tool surface, do we expose both, or simplify to "side + line"? (Phase 3)

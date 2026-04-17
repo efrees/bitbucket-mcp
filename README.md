@@ -22,18 +22,23 @@ this project depends on.
 
 ## Quick start (forward-looking — not all wired up yet)
 
+Distributed git-only for now — install from source:
+
 ```bash
+git clone <this repo> bitbucket-mcp
+cd bitbucket-mcp
 npm install
 npm run build
 
 # One-time login (Phase 1 — not yet implemented)
-bitbucket-mcp login
+node dist/index.js login
 
 # Run as an MCP server over stdio
-bitbucket-mcp
+node dist/index.js
 ```
 
-Wire it into your MCP client config like any other stdio MCP server.
+Wire `node /absolute/path/to/dist/index.js` into your MCP client config as a
+stdio server.
 
 ## Repo layout
 
