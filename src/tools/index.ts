@@ -11,6 +11,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AppConfig } from "../config.js";
 import type { AuthSession } from "../auth/session.js";
 import type { BitbucketHttpClient } from "../bitbucket/http-client.js";
+import * as getPullRequest from "./get-pull-request.js";
 import * as listPullRequests from "./list-pull-requests.js";
 
 export interface ToolContext {
@@ -21,4 +22,5 @@ export interface ToolContext {
 
 export function registerTools(server: McpServer, ctx: ToolContext): void {
   listPullRequests.register(server, ctx);
+  getPullRequest.register(server, ctx);
 }
