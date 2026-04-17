@@ -32,19 +32,19 @@ project depends on.
 Goal: a CLI command that performs the OAuth 3LO PKCE dance and persists a
 refreshable token, plus runtime auto-refresh.
 
-- [ ] `bitbucket-mcp login` command
+- [x] `bitbucket-mcp login` command
   - Spawns a loopback HTTP server on an ephemeral port
   - Builds the authorize URL with PKCE `code_challenge` (S256)
   - Opens the user's browser to it
   - Receives the `code` on the loopback callback, exchanges it for tokens
   - Persists `{ access_token, refresh_token, expires_at, scopes, user }` encrypted at rest
-- [ ] `bitbucket-mcp logout` command — wipes the stored token file
-- [ ] `bitbucket-mcp whoami` command — prints the authenticated user
-- [ ] Token refresh middleware in the HTTP client — refresh on 401 or near-expiry
-- [ ] Encryption-at-rest implementation
-  - **Windows (priority):** DPAPI via `CryptProtectData` / `CryptUnprotectData` with `CRYPTPROTECT_UI_FORBIDDEN`. Scope: current user. Ciphertext stored as-is in `%APPDATA%\bitbucket-mcp\tokens.bin`. Silent on every run.
-  - **macOS / Linux:** deferred — initial builds on those platforms will refuse to start if DPAPI is unavailable, with a clear error. Resolution tracked in open question #3.
-- [ ] Config loader: read `client_id` (and optional `workspace` default) from `~/.config/bitbucket-mcp/config.json` or env vars
+- [x] `bitbucket-mcp logout` command — wipes the stored token file
+- [x] `bitbucket-mcp whoami` command — prints the authenticated user
+- [x] Token refresh middleware in the HTTP client — refresh on 401 or near-expiry
+- [x] Encryption-at-rest implementation (Windows only for now)
+  - **Windows:** DPAPI via PowerShell subprocess using `System.Security.Cryptography.ProtectedData` (CurrentUser scope). Ciphertext at `%APPDATA%\bitbucket-mcp\tokens.bin`. Silent on every run, zero native-module dependencies.
+  - **macOS / Linux:** `createDefaultTokenStore()` throws `AuthError` on non-Windows platforms. Resolution tracked in open question #3.
+- [x] Config loader: reads `client_id` (and optional `workspace` default) from `<configDir>/config.json` or `BITBUCKET_MCP_CLIENT_ID` / `BITBUCKET_MCP_WORKSPACE` env vars
 
 ## Phase 2 — Read-side MCP tools (PR context)
 
