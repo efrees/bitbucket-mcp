@@ -50,12 +50,12 @@ refreshable token, plus runtime auto-refresh.
 
 Goal: an agent can inspect a PR before deciding what to say.
 
-- [ ] `bitbucket_list_pull_requests` — filter by repo, state, author, reviewer
-- [ ] `bitbucket_get_pull_request` — full PR metadata (title, description, branches, reviewers, status)
-- [ ] `bitbucket_get_pull_request_diff` — unified diff text, with truncation guardrails for huge PRs
-- [ ] `bitbucket_get_pull_request_diffstat` — per-file change summary (cheaper than the full diff)
-- [ ] `bitbucket_list_pull_request_comments` — paginated, includes inline anchors and parent/child threading
-- [ ] Pagination helper that auto-walks `next` cursors with a configurable cap
+- [x] `bitbucket_list_pull_requests` — filter by repo, state, BBQL query
+- [x] `bitbucket_get_pull_request` — full PR metadata, reviewers, participants, approval state
+- [x] `bitbucket_get_pull_request_diff` — unified diff text, byte-budgeted truncation (250 KB default)
+- [x] `bitbucket_get_pull_request_diffstat` — per-file change summary with totals
+- [x] `bitbucket_list_pull_request_comments` — paginated, includes inline anchors and `parent_id` for threading
+- [x] Pagination helper that auto-walks `next` cursors with a configurable cap
 
 ## Phase 3 — Write-side MCP tools (reply & review)
 
