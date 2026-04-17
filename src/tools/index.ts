@@ -21,6 +21,14 @@ export interface ToolContext {
   readonly config: AppConfig;
   readonly auth: AuthSession;
   readonly http: BitbucketHttpClient;
+  /**
+   * True when the operator started the MCP server with `--allow-writes`.
+   * Write-side tools refuse to run when this is false, regardless of the
+   * OAuth scope actually granted on the token. This is a belt-and-braces
+   * gate: even if the user accidentally grants pullrequest:write to the
+   * consumer, the server won't post until the operator opts in.
+   */
+  readonly writesAllowed: boolean;
 }
 
 export function registerTools(server: McpServer, ctx: ToolContext): void {

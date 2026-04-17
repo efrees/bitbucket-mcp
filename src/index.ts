@@ -12,11 +12,15 @@ import { startStdioServer } from "./server.js";
 
 async function main(): Promise<number> {
   const [, , subcommand, ...rest] = process.argv;
+  const flags = new Set(rest.filter((a) => a.startsWith("--")));
 
   try {
     switch (subcommand) {
       case undefined:
-        await startStdioServer();
+      case "--allow-writes":
+        await startStdioServer({
+          allowWrites: subcommand === "--allow-writes" || flags.has("--allow-writes"),
+        });
         return 0;
       case "login":
         return await runLogin();
@@ -35,9 +39,6 @@ async function main(): Promise<number> {
     }
   } catch (err) {
     return reportError(err);
-  } finally {
-    // Reserved for future use (e.g. flushing buffered logs).
-    void rest;
   }
 }
 

@@ -27,13 +27,23 @@ export interface CreateServerResult {
   readonly context: ToolContext;
 }
 
-export function createServer(): CreateServerResult {
+export interface CreateServerOptions {
+  /** Allow write-side tools (posting comments, replies). Default: false. */
+  readonly allowWrites?: boolean;
+}
+
+export function createServer(options: CreateServerOptions = {}): CreateServerResult {
   const config = loadConfig();
   const tokenStore = createDefaultTokenStore();
   const auth = new AuthSession({ clientId: config.clientId, tokenStore });
   const http = new BitbucketHttpClient(auth);
 
-  const context: ToolContext = { config, auth, http };
+  const context: ToolContext = {
+    config,
+    auth,
+    http,
+    writesAllowed: options.allowWrites ?? false,
+  };
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     { capabilities: { tools: {} } },
@@ -42,9 +52,9 @@ export function createServer(): CreateServerResult {
   return { server, context };
 }
 
-export async function startStdioServer(): Promise<void> {
-  const { server } = createServer();
+export async function startStdioServer(options: CreateServerOptions = {}): Promise<void> {
+  const { server, context } = createServer(options);
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  log.info("bitbucket-mcp: stdio server ready");
+  log.info("bitbucket-mcp: stdio server ready", { writesAllowed: context.writesAllowed });
 }

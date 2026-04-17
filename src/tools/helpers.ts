@@ -52,3 +52,17 @@ export function resolveWorkspace(ctx: ToolContext, supplied?: string | undefined
 export function encodePathSegment(value: string): string {
   return encodeURIComponent(value);
 }
+
+/**
+ * Gate for write-side tools. When `--allow-writes` is not set, the tool
+ * refuses before any network traffic leaves the process. Agents will see
+ * a single-line error explaining how to enable it, rather than a
+ * generic 403 from Bitbucket.
+ */
+export function requireWritesAllowed(ctx: ToolContext): void {
+  if (!ctx.writesAllowed) {
+    throw new Error(
+      "Write tools are disabled. Start the server with `bitbucket-mcp --allow-writes` to enable posting comments.",
+    );
+  }
+}
