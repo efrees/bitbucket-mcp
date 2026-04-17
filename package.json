@@ -1,0 +1,36 @@
+{
+  "name": "bitbucket-mcp",
+  "version": "0.0.1",
+  "description": "MCP server for Bitbucket Cloud — read PR context and reply to PR comments, for use by autonomous code-review and feedback-fixing agents.",
+  "type": "module",
+  "bin": {
+    "bitbucket-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "ROADMAP.md",
+    "docs"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rimraf dist"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.4.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
