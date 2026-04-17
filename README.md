@@ -7,9 +7,23 @@ the ability to read pull request context and reply to PR comments on
 - Agents performing autonomous code review on a teammate's PR.
 - Agents acting on reviewer feedback left on the agent's own PR.
 
-Status: **bootstrap** — see [ROADMAP.md](ROADMAP.md) for what's planned and
-[docs/bitbucket-api.md](docs/bitbucket-api.md) for the Bitbucket API surface
-this project depends on.
+Status: **Phase 3 feature-complete on Windows.** OAuth login + five read
+tools + three write tools are in place. See [ROADMAP.md](ROADMAP.md) for
+remaining hardening work and [docs/bitbucket-api.md](docs/bitbucket-api.md)
+for the Bitbucket API surface this project depends on.
+
+Available MCP tools:
+
+| Tool | Purpose |
+|---|---|
+| `bitbucket_list_pull_requests` | List PRs by repo/state/BBQL query |
+| `bitbucket_get_pull_request` | Full PR metadata, reviewers, approval state |
+| `bitbucket_get_pull_request_diff` | Unified diff text (byte-capped) |
+| `bitbucket_get_pull_request_diffstat` | Per-file change summary |
+| `bitbucket_list_pull_request_comments` | Flat comment list with inline anchors and `parent_id` |
+| `bitbucket_create_pr_comment` | Post a top-level PR comment *(write — requires `--allow-writes`)* |
+| `bitbucket_reply_to_pr_comment` | Reply to an existing comment *(write — requires `--allow-writes`)* |
+| `bitbucket_create_pr_inline_comment` | Line-anchored review comment *(write — requires `--allow-writes`)* |
 
 ## Architecture at a glance
 
@@ -30,26 +44,43 @@ cd bitbucket-mcp
 npm install
 npm run build
 
-# One-time login (Phase 1 — not yet implemented)
+# One-time login
 node dist/index.js login
 
-# Run as an MCP server over stdio
+# Confirm identity
+node dist/index.js whoami
+
+# Run as an MCP server over stdio (read-only by default)
 node dist/index.js
+
+# Enable write tools (posting comments)
+node dist/index.js --allow-writes
 ```
 
 Wire `node /absolute/path/to/dist/index.js` into your MCP client config as a
-stdio server.
+stdio server. Set the env vars `BITBUCKET_MCP_CLIENT_ID` and (optionally)
+`BITBUCKET_MCP_WORKSPACE` so they're visible when the client spawns the
+process.
 
 ## Repo layout
 
 ```
 bitbucket-mcp/
+├── CLAUDE.md              # guidance for Claude Code sessions
 ├── ROADMAP.md             # phases and open questions
 ├── docs/
 │   └── bitbucket-api.md   # API surface & OAuth flow we depend on
 ├── src/
-│   ├── index.ts           # stdio entry point
-│   └── server.ts          # MCP server + tool registration (currently empty)
+│   ├── index.ts           # CLI entry point (login/logout/whoami/serve)
+│   ├── server.ts          # MCP server factory + startStdioServer
+│   ├── config.ts          # config loader
+│   ├── logger.ts          # stderr-only structured logger
+│   ├── errors.ts          # BitbucketApiError / AuthError / ConfigError
+│   ├── paths.ts           # OS-specific config/token paths
+│   ├── cli/               # CLI subcommand handlers
+│   ├── auth/              # OAuth PKCE, DPAPI token store, AuthSession
+│   ├── bitbucket/         # HTTP client, pagination, API types
+│   └── tools/             # MCP tool registrations (one file per tool)
 ├── package.json
 └── tsconfig.json
 ```

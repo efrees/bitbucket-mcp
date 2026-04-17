@@ -61,10 +61,10 @@ Goal: an agent can inspect a PR before deciding what to say.
 
 Goal: an agent can respond to feedback and leave its own line-anchored review.
 
-- [ ] `bitbucket_reply_to_comment` — post a reply scoped to a parent comment id
-- [ ] `bitbucket_create_top_level_comment` — post a non-anchored comment on the PR
-- [ ] `bitbucket_create_inline_comment` — anchor to `path` + line number (with `to`/`from` semantics — see API doc)
-- [ ] Per-tool permission gate: writes require an explicit `--allow-writes` server flag at startup, or `pullrequest:write` confirmed in the token's scopes (whichever is stricter)
+- [x] `bitbucket_reply_to_pr_comment` — post a reply scoped to a parent comment id
+- [x] `bitbucket_create_pr_comment` — post a non-anchored top-level comment
+- [x] `bitbucket_create_pr_inline_comment` — anchor to `path` + (side, line); schema makes the "exactly one side" API rule unrepresentable-as-invalid
+- [x] Permission gate: `--allow-writes` startup flag is required; `requireWritesAllowed` fails fast before any network call. Scope-level gate (verifying the token actually has `pullrequest:write`) remains nice-to-have but not blocking.
 
 ## Phase 4 — Hardening & ergonomics
 
@@ -93,5 +93,5 @@ ships. Flagging them here so they don't get lost.
 2. ~~**Distribution** — Publish to npm as `bitbucket-mcp`, or keep it as a git-installable tool only?~~ **Resolved: git-only for now.** Users install via `git clone` + `npm install` + `npm run build`, then point their MCP client at the built `dist/index.js`. Revisit if/when the tool stabilizes enough for an npm release.
 3. **Encryption — non-Windows platforms.** Windows uses DPAPI (resolved). For macOS and Linux, what's the fallback? Options: (a) native OS keychain (macOS Keychain via Security framework, Linux Secret Service / libsecret) — silent but adds a native-module dependency and has Linux-on-headless-server edge cases; (b) passphrase-derived AES-GCM, prompted at `login` and cached in-memory per process; (c) refuse to run on those platforms until a user explicitly opts in. Leaning (a), but not a blocker until we need cross-platform. (Phase 1+)
 4. ~~**Diff size cap** — default max diff size before forcing the agent to fetch diffstat?~~ **Resolved: 250 KB default, 2 MB hard ceiling.** Configurable per call via the `max_bytes` argument on `bitbucket_get_pull_request_diff`; UTF-8-safe truncation with an explicit marker pointing at the diffstat tool.
-5. **Inline comment line semantics** — Bitbucket distinguishes `inline.to` (new file line) and `inline.from` (old file line). For the MCP tool surface, do we expose both, or simplify to "side + line"? (Phase 3)
-6. **Write confirmation** — Should write tools emit a dry-run preview by default and require an `confirm: true` argument, or trust the agent once `--allow-writes` is on? (Phase 3)
+5. ~~**Inline comment line semantics** — expose raw `to`/`from` or simplify?~~ **Resolved: `(side: 'new'|'old', line: number)`.** The tool schema makes Bitbucket's "exactly one of to/from per comment" rule unrepresentable-as-invalid.
+6. ~~**Write confirmation** — dry-run preview + `confirm: true`, or trust the agent once `--allow-writes` is on?~~ **Resolved: trust the agent once `--allow-writes` is on.** The startup flag is the operator-level gate; requiring a per-call confirmation on top would cripple agent autonomy. Operators who want a stricter policy can simply not pass `--allow-writes`.
