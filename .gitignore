@@ -3,6 +3,9 @@ dist/
 *.log
 .DS_Store
 
+# Claude Code local settings — per-user, not shared
+.claude/settings.local.json
+
 # Local config & secrets — never commit
 .env
 .env.*
