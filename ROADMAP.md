@@ -68,11 +68,14 @@ Goal: an agent can respond to feedback and leave its own line-anchored review.
 
 ## Phase 4 — Hardening & ergonomics
 
-- [ ] Structured error mapping: surface Bitbucket error envelopes (`{ "type": "error", "error": {...} }`) as MCP tool errors with actionable messages
-- [ ] Rate-limit handling: respect `429`, back off using `Retry-After`
-- [ ] Logging: stderr-only structured logs (stdout is reserved for MCP framing)
-- [ ] Named profiles: `--profile work` to maintain multiple authenticated identities
-- [ ] Test suite: contract tests against recorded fixtures; one live smoke test gated on env credentials
+- [x] Structured error mapping: `BitbucketApiError` carries status + parsed envelope (`message` / `detail` / `code` / `requestId`); tool handlers render this as a pointed message rather than a stack trace.
+- [x] Rate-limit handling: up to 3 retries on 429 / 5xx; honors `Retry-After` (seconds or HTTP-date), falls back to capped exponential backoff with jitter.
+- [x] Logging: stderr-only JSON logger, level controlled by `BITBUCKET_MCP_LOG_LEVEL`.
+- [x] Test suite: `node:test` + `tsx` covering PKCE generation, Retry-After parsing, pagination flattening/truncation, and HTTP client retry + error-envelope behavior. Runs in CI.
+- [ ] Named profiles: `--profile work` to maintain multiple authenticated identities (deferred).
+- [ ] Contract tests against recorded Bitbucket response fixtures (deferred — current unit suite covers the generic HTTP paths, but per-endpoint fixtures would catch schema drift earlier).
+- [ ] Live smoke test gated on env credentials for end-to-end verification against a real workspace (deferred).
+- [ ] Scope-level write gate: verify the stored token actually has `pullrequest:write` before running a write tool, on top of the existing `--allow-writes` operator gate (deferred; nice-to-have).
 
 ## Out of scope for now (revisit later)
 
