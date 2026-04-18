@@ -56,7 +56,7 @@ Don't re-litigate these without the user asking:
 
 - Runtime: TypeScript on Node.js 20+
 - Transport: stdio only (no hosted HTTP server)
-- Auth: Bitbucket Cloud OAuth 2.0 (3LO) with PKCE; user-owned OAuth consumer
+- Auth: Bitbucket Cloud OAuth 2.0 (3LO) with PKCE + HTTP Basic auth at the token endpoint (Bitbucket requires the client_secret even in PKCE flows); user-owned **private** OAuth consumer (clientId + clientSecret)
 - Windows token storage: DPAPI (`CryptProtectData`, user scope)
 - CI: GitHub Actions on `windows-latest`
 - Distribution: git-only for now (no npm publish)
@@ -103,3 +103,48 @@ that are too long is docs that are wrong. When working in this repo:
 - **Bitbucket pagination:** walk `next` URLs as-is; don't rebuild them.
 - **Diffs can be huge.** The `/diff` endpoint returns text/plain and is
   unbounded — always apply a size cap before returning to an agent.
+
+## Hard-won specifics you should not re-derive
+
+Concrete facts we've already paid to learn. Don't regress these without
+strong new evidence:
+
+- **OAuth callback port must be fixed, not ephemeral.** Bitbucket does
+  exact matching on the registered callback URL including port. The
+  default is `33378`; picking anything `≥ 49152` is unsafe on Windows
+  because Hyper-V / WSL / Docker Desktop silently reserve large chunks of
+  the dynamic range and `bind()` fails with `EACCES`. If you change the
+  default, keep it below 49152.
+
+- **Do NOT open URLs on Windows via `cmd /c start "" <url>`.** cmd.exe's
+  parser splits on `&` even when the URL is a single argv element, so
+  everything from the first `&` in the query string is discarded before
+  `start` sees it. Use `rundll32.exe url.dll,FileProtocolHandler <url>`
+  — that goes straight to ShellExecute with no shell interpretation.
+  PowerShell `Start-Process` has also misbehaved under `detached: true`
+  (the PS process exits before the hand-off completes).
+
+- **Scopes are configured on the consumer, not requested in the
+  authorize URL.** Bitbucket validates that any `scope=` in the request
+  is a subset of what the consumer already has; sending scopes the
+  consumer lacks causes the whole authorize call to fail with a
+  misleading error (`unsupported_response_type — Invalid value specified
+  None`). The safe path is to keep the request's `scope` aligned with
+  the permissions selected when registering the consumer.
+
+- **Bitbucket requires the client_secret at the token endpoint even
+  with PKCE.** Sending `client_id` in the POST body (no Authorization
+  header) gets `unauthorized_client — Client credentials missing`. The
+  fix is HTTP Basic auth (`Authorization: Basic base64(id:secret)`) on
+  both `authorization_code` and `refresh_token` grants. PKCE still
+  rides along as defense-in-depth. Practically this means the consumer
+  must be registered as **private** (not public) — despite what the
+  OAuth 2.0 spec implies PKCE should enable, Bitbucket's implementation
+  does not accept it without credentials.
+
+- **Windows DPAPI via PowerShell subprocess, not a native node module.**
+  Spawning `powershell.exe` with a short
+  `System.Security.Cryptography.ProtectedData` script is ~100ms per op,
+  which is fine for the rare token read/write cadence and avoids a
+  native-module dependency that would otherwise need to compile on every
+  user's machine.

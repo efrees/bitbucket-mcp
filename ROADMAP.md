@@ -11,7 +11,7 @@ code reviews and act on reviewer feedback.
 | Language / runtime | TypeScript on Node.js 20+ | Uses `@modelcontextprotocol/sdk` |
 | Transport | Local **stdio** only | Each user runs the server on their own machine; no hosted service |
 | Auth model | **OAuth 2.0 (3LO) with PKCE** | Each user logs in as themselves; tokens are per-user |
-| OAuth consumer | **User-owned** | Each user registers an OAuth consumer in their own Bitbucket workspace and supplies its `client_id` (PKCE means no secret required) |
+| OAuth consumer | **User-owned, private** | Each user registers a private OAuth consumer in their own Bitbucket workspace and supplies its `clientId` + `clientSecret`. Bitbucket requires the secret at the token endpoint even with PKCE. |
 | Token storage | Encrypted file under user config dir | Windows: **DPAPI** (`CryptProtectData`, user-scoped) — silent, no passphrase. macOS/Linux: TBD (see open question #3) |
 | Multi-account on one machine | Profile-based; v1 supports a default profile, v2 adds named profiles |
 | Bitbucket API version | REST API 2.0 | Base: `https://api.bitbucket.org/2.0` |
