@@ -8,7 +8,7 @@ code reviews and act on reviewer feedback.
 
 | Decision | Choice | Notes |
 |---|---|---|
-| Language / runtime | TypeScript on Node.js 20+ | Uses `@modelcontextprotocol/sdk` |
+| Language / runtime | TypeScript on Node.js 22+ | Uses `@modelcontextprotocol/sdk` |
 | Transport | Local **stdio** only | Each user runs the server on their own machine; no hosted service |
 | Auth model | **OAuth 2.0 (3LO) with PKCE** | Each user logs in as themselves; tokens are per-user |
 | OAuth consumer | **User-owned, private** | Each user registers a private OAuth consumer in their own Bitbucket workspace and supplies its `clientId` + `clientSecret`. "Private" describes the fact that the user holds the credentials themselves; it's not about whether a secret exists (both kinds have one). Bitbucket requires HTTP Basic auth at the token endpoint even with PKCE. |

@@ -54,7 +54,7 @@ don't inline `\n` in `-m` strings.
 
 Don't re-litigate these without the user asking:
 
-- Runtime: TypeScript on Node.js 20+
+- Runtime: TypeScript on Node.js 22+ (needs `node --test` glob support, which landed in 21)
 - Transport: stdio only (no hosted HTTP server)
 - Auth: Bitbucket Cloud OAuth 2.0 (3LO) with PKCE + HTTP Basic auth at the token endpoint (Bitbucket requires the client_secret even in PKCE flows). User-owned OAuth consumer, registered as **private** (each user is the sole holder of their consumer's credentials — that's the scenario "private" describes). Public would also work for our flow; we recommend private because it's the semantically honest label.
 - Windows token storage: DPAPI (`CryptProtectData`, user scope)

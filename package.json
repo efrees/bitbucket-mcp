@@ -22,7 +22,7 @@
     "clean": "rimraf dist"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
