@@ -56,7 +56,7 @@ Don't re-litigate these without the user asking:
 
 - Runtime: TypeScript on Node.js 20+
 - Transport: stdio only (no hosted HTTP server)
-- Auth: Bitbucket Cloud OAuth 2.0 (3LO) with PKCE + HTTP Basic auth at the token endpoint (Bitbucket requires the client_secret even in PKCE flows). User-owned OAuth consumer, registered as **private** (each user is the sole holder of their consumer's credentials — that's the scenario "private" describes). Public would also work for our flow; we recommend private because it's the semantically honest label.
+- Auth: dual-mode. `client_credentials` grant (headless, bot-attributed actions, workspace-scoped token, no refresh token) is the default. `authorization_code` (3LO, user-attributed, browser consent, DPAPI-persisted refresh) is available via `authMode: "authorization_code"`. Both require `clientId` + `clientSecret` (HTTP Basic auth at the token endpoint). User-owned **private** OAuth consumer.
 - Windows token storage: DPAPI (`CryptProtectData`, user scope)
 - CI: GitHub Actions on `windows-latest`
 - Distribution: git-only for now (no npm publish)
@@ -140,15 +140,27 @@ strong new evidence:
   rides along as defense-in-depth.
 
 - **Public vs. private consumer is not about secrets.** Both kinds have
-  a `clientSecret`. The "private" checkbox additionally enables the
-  `client_credentials` grant (which we never invoke) and signals that
-  the credentials are held by the consumer's owner and not distributed.
-  Bitbucket's help text says apps that *ship* their credentials (baked
-  into a downloadable binary) should stay public; we don't ship any —
-  each user provisions their own consumer — so "private" is the honest
-  fit. Either setting works with our 3LO+PKCE+Basic flow; if you see
-  docs/tests assume one and behavior doesn't match, don't flip the
-  setting as a fix — check the real cause first.
+  a `clientSecret`. The "private" checkbox enables the
+  `client_credentials` grant and signals that the credentials are held
+  by the consumer's owner rather than distributed in a binary. For
+  this project the consumer should be **private** — each user provisions
+  their own, and the `client_credentials` mode literally needs the grant
+  enabled.
+
+- **PKCE on Bitbucket *Cloud* is cosmetic.** Bitbucket Server supports
+  authorization_code + PKCE for public clients. Bitbucket *Cloud* does
+  not: its token endpoint requires HTTP Basic auth with
+  clientId:clientSecret regardless of any PKCE parameters on the
+  authorize call. The authorize endpoint accepts code_challenge /
+  code_challenge_method without complaining (unknown params are
+  ignored), but Cloud never validates them. Our 3LO path still sends
+  them as defense-in-depth for a future when this changes; don't
+  mistake their presence for "we're doing PKCE" in the security-model
+  sense.
+
+- **`client_credentials` is a real OAuth grant type**, not a Bitbucket
+  coinage — it's RFC 6749 §1.3.4. Bitbucket's "private consumer" note
+  uses the term correctly.
 
 - **Windows DPAPI via PowerShell subprocess, not a native node module.**
   Spawning `powershell.exe` with a short

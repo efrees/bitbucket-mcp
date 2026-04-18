@@ -3,7 +3,9 @@
   "_comment_2": "On Windows: %APPDATA%\\bitbucket-mcp\\config.json",
   "_comment_3": "On macOS:   ~/Library/Application Support/bitbucket-mcp/config.json",
   "_comment_4": "On Linux:   ~/.config/bitbucket-mcp/config.json (or $XDG_CONFIG_HOME/bitbucket-mcp/config.json)",
+  "_comment_5": "authMode: 'client_credentials' (headless, bot-attributed) or 'authorization_code' (browser login, user-attributed).",
 
+  "authMode": "client_credentials",
   "clientId": "REPLACE_WITH_YOUR_OAUTH_CONSUMER_KEY",
   "clientSecret": "REPLACE_WITH_YOUR_OAUTH_CONSUMER_SECRET",
   "defaultWorkspace": "your-workspace-slug"

@@ -6,6 +6,9 @@ dist/
 # Claude Code local settings — per-user, not shared
 .claude/settings.local.json
 
+# Claude Code worktrees — ephemeral, per-task working copies
+.claude/worktrees/
+
 # Local config & secrets — never commit
 .env
 .env.*

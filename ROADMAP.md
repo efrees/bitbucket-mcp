@@ -10,8 +10,8 @@ code reviews and act on reviewer feedback.
 |---|---|---|
 | Language / runtime | TypeScript on Node.js 20+ | Uses `@modelcontextprotocol/sdk` |
 | Transport | Local **stdio** only | Each user runs the server on their own machine; no hosted service |
-| Auth model | **OAuth 2.0 (3LO) with PKCE** | Each user logs in as themselves; tokens are per-user |
-| OAuth consumer | **User-owned, private** | Each user registers a private OAuth consumer in their own Bitbucket workspace and supplies its `clientId` + `clientSecret`. "Private" describes the fact that the user holds the credentials themselves; it's not about whether a secret exists (both kinds have one). Bitbucket requires HTTP Basic auth at the token endpoint even with PKCE. |
+| Auth model | **Dual-mode: `client_credentials` (default) or `authorization_code`** | Default is headless: a workspace-scoped token fetched on demand via HTTP Basic + `client_credentials`, no browser. Optional 3LO mode (`authMode: "authorization_code"`) gives user-attributed actions via browser consent + DPAPI-persisted refresh. |
+| OAuth consumer | **User-owned, private** | Each user registers a private OAuth consumer in their own Bitbucket workspace and supplies its `clientId` + `clientSecret` (required in both modes). The private designation enables `client_credentials` and matches the "credentials held by the user" reality. |
 | Token storage | Encrypted file under user config dir | Windows: **DPAPI** (`CryptProtectData`, user-scoped) — silent, no passphrase. macOS/Linux: TBD (see open question #3) |
 | Multi-account on one machine | Profile-based; v1 supports a default profile, v2 adds named profiles |
 | Bitbucket API version | REST API 2.0 | Base: `https://api.bitbucket.org/2.0` |
@@ -29,22 +29,24 @@ project depends on.
 
 ## Phase 1 — Auth foundation
 
-Goal: a CLI command that performs the OAuth 3LO PKCE dance and persists a
-refreshable token, plus runtime auto-refresh.
+Goal: runtime auth that works headless by default and supports full 3LO
+when user-attributed actions are required.
 
-- [x] `bitbucket-mcp login` command
-  - Spawns a loopback HTTP server on an ephemeral port
-  - Builds the authorize URL with PKCE `code_challenge` (S256)
-  - Opens the user's browser to it
-  - Receives the `code` on the loopback callback, exchanges it for tokens
-  - Persists `{ access_token, refresh_token, expires_at, scopes, user }` encrypted at rest
-- [x] `bitbucket-mcp logout` command — wipes the stored token file
-- [x] `bitbucket-mcp whoami` command — prints the authenticated user
-- [x] Token refresh middleware in the HTTP client — refresh on 401 or near-expiry
-- [x] Encryption-at-rest implementation (Windows only for now)
-  - **Windows:** DPAPI via PowerShell subprocess using `System.Security.Cryptography.ProtectedData` (CurrentUser scope). Ciphertext at `%APPDATA%\bitbucket-mcp\tokens.bin`. Silent on every run, zero native-module dependencies.
-  - **macOS / Linux:** `createDefaultTokenStore()` throws `AuthError` on non-Windows platforms. Resolution tracked in open question #3.
-- [x] Config loader: reads `client_id` (and optional `workspace` default) from `<configDir>/config.json` or `BITBUCKET_MCP_CLIENT_ID` / `BITBUCKET_MCP_WORKSPACE` env vars
+- [x] `client_credentials` auth path (default): POST to the token endpoint
+  with HTTP Basic (id:secret) and `grant_type=client_credentials`. Token
+  cached in-process; re-fetched on expiry or after a 401. No disk
+  persistence, no refresh token (by design for this grant).
+- [x] `authorization_code` auth path: full 3LO flow with a fixed-port
+  loopback callback. Tokens persisted via DPAPI on Windows. Tokens auto-
+  refresh on expiry or 401.
+- [x] `bitbucket-mcp login` — 3LO flow (authorization_code mode only)
+- [x] `bitbucket-mcp logout` — wipes DPAPI-persisted tokens (authorization_code mode only)
+- [x] `bitbucket-mcp whoami` — describes current auth state in either mode
+- [x] Token refresh middleware in the HTTP client — refresh on 401 or near-expiry (both modes)
+- [x] Encryption-at-rest for stored refresh tokens
+  - **Windows:** DPAPI via PowerShell subprocess using `System.Security.Cryptography.ProtectedData` (CurrentUser scope). Ciphertext at `%APPDATA%\bitbucket-mcp\tokens.bin`. Only relevant to authorization_code mode.
+  - **macOS / Linux:** `createDefaultTokenStore()` throws `AuthError` on non-Windows platforms. Tracked in open question #3. client_credentials mode has no on-disk persistence, so it's cross-platform today.
+- [x] Config loader: reads `authMode`, `clientId`, `clientSecret`, optional `defaultWorkspace` from `<configDir>/config.json` or `BITBUCKET_MCP_*` env vars
 
 ## Phase 2 — Read-side MCP tools (PR context)
 
