@@ -13,7 +13,7 @@
  * scripts can gate on them.
  */
 
-import { performLogin } from "../auth/login-flow.js";
+import { DEFAULT_CALLBACK_PORT, performLogin } from "../auth/login-flow.js";
 import { AuthSession } from "../auth/session.js";
 import { createDefaultTokenStore } from "../auth/index.js";
 import { loadConfig } from "../config.js";
@@ -24,11 +24,13 @@ export async function runLogin(): Promise<number> {
   const tokenStore = createDefaultTokenStore();
   const session = new AuthSession({ clientId: config.clientId, tokenStore });
 
+  const callbackPort = parseCallbackPort(process.env["BITBUCKET_MCP_CALLBACK_PORT"]);
   process.stdout.write(
     "Starting Bitbucket login. Your browser will open for consent.\n" +
-      "(If it doesn't, copy the URL shown below into a browser.)\n\n",
+      `(Callback will hit http://127.0.0.1:${callbackPort}/callback — ` +
+      "this must match the callback URL on your OAuth consumer.)\n\n",
   );
-  const token = await performLogin({ clientId: config.clientId });
+  const token = await performLogin({ clientId: config.clientId, callbackPort });
   await session.setToken(token);
   process.stdout.write(
     `\nSuccess — logged in as ${token.user.displayName} (${token.user.uuid}).\n` +
@@ -79,13 +81,25 @@ export async function runHelp(): Promise<number> {
       "  bitbucket-mcp help                show this message",
       "",
       "Config:",
-      "  BITBUCKET_MCP_CLIENT_ID    OAuth consumer key (required)",
-      "  BITBUCKET_MCP_WORKSPACE    default workspace slug (optional)",
-      "  BITBUCKET_MCP_LOG_LEVEL    debug|info|warn|error (default: info)",
+      "  BITBUCKET_MCP_CLIENT_ID       OAuth consumer key (required)",
+      "  BITBUCKET_MCP_WORKSPACE       default workspace slug (optional)",
+      "  BITBUCKET_MCP_CALLBACK_PORT   loopback port for OAuth callback (default: 33378)",
+      "  BITBUCKET_MCP_LOG_LEVEL       debug|info|warn|error (default: info)",
       "",
     ].join("\n"),
   );
   return 0;
+}
+
+function parseCallbackPort(raw: string | undefined): number {
+  if (!raw) return DEFAULT_CALLBACK_PORT;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 65535) {
+    throw new ConfigError(
+      `BITBUCKET_MCP_CALLBACK_PORT must be an integer in 1..65535, got: ${raw}`,
+    );
+  }
+  return n;
 }
 
 /** Convert an error thrown by a command into a process exit code + stderr line. */
