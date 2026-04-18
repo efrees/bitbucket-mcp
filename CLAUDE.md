@@ -54,7 +54,7 @@ don't inline `\n` in `-m` strings.
 
 Don't re-litigate these without the user asking:
 
-- Runtime: TypeScript on Node.js 20+
+- Runtime: TypeScript on Node.js 22+ (needs `node --test` glob support, which landed in 21)
 - Transport: stdio only (no hosted HTTP server)
 - Auth: dual-mode. `client_credentials` grant (headless, bot-attributed actions, workspace-scoped token, no refresh token) is the default. `authorization_code` (3LO, user-attributed, browser consent, DPAPI-persisted refresh) is available via `authMode: "authorization_code"`. Both require `clientId` + `clientSecret` (HTTP Basic auth at the token endpoint). User-owned **private** OAuth consumer.
 - Windows token storage: DPAPI (`CryptProtectData`, user scope)

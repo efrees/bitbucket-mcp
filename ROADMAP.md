@@ -8,7 +8,7 @@ code reviews and act on reviewer feedback.
 
 | Decision | Choice | Notes |
 |---|---|---|
-| Language / runtime | TypeScript on Node.js 20+ | Uses `@modelcontextprotocol/sdk` |
+| Language / runtime | TypeScript on Node.js 22+ | Uses `@modelcontextprotocol/sdk` |
 | Transport | Local **stdio** only | Each user runs the server on their own machine; no hosted service |
 | Auth model | **Dual-mode: `client_credentials` (default) or `authorization_code`** | Default is headless: a workspace-scoped token fetched on demand via HTTP Basic + `client_credentials`, no browser. Optional 3LO mode (`authMode: "authorization_code"`) gives user-attributed actions via browser consent + DPAPI-persisted refresh. |
 | OAuth consumer | **User-owned, private** | Each user registers a private OAuth consumer in their own Bitbucket workspace and supplies its `clientId` + `clientSecret` (required in both modes). The private designation enables `client_credentials` and matches the "credentials held by the user" reality. |
