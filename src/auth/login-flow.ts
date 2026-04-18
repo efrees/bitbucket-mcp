@@ -209,8 +209,19 @@ async function fetchIdentity(accessToken: string): Promise<StoredToken["user"]> 
 
 function defaultBrowserOpener(url: string): void {
   if (process.platform === "win32") {
-    // `start` is a cmd.exe builtin — the empty "" is the window title slot.
-    spawn("cmd.exe", ["/c", "start", "", url], { detached: true, stdio: "ignore" }).unref();
+    // rundll32 goes straight to ShellExecute with no shell interpretation.
+    //
+    // Do not replace with `cmd /c start "" <url>`: cmd.exe splits the
+    // command line on `&` before `start` sees its args, truncating any
+    // URL whose query string contains ampersands.
+    //
+    // Do not replace with PowerShell `Start-Process` under detached
+    // spawn: the PS process has been observed to exit before ShellExecute
+    // completes its hand-off, silently dropping the launch.
+    spawn("rundll32.exe", ["url.dll,FileProtocolHandler", url], {
+      detached: true,
+      stdio: "ignore",
+    }).unref();
     return;
   }
   if (process.platform === "darwin") {
