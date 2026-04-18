@@ -56,7 +56,7 @@ Don't re-litigate these without the user asking:
 
 - Runtime: TypeScript on Node.js 20+
 - Transport: stdio only (no hosted HTTP server)
-- Auth: Bitbucket Cloud OAuth 2.0 (3LO) with PKCE + HTTP Basic auth at the token endpoint (Bitbucket requires the client_secret even in PKCE flows). User-owned OAuth consumer, kept **public** — the "private consumer" checkbox enables the `client_credentials` grant for apps that ship their credentials, which isn't our case. Both `clientId` and `clientSecret` are present on public consumers.
+- Auth: Bitbucket Cloud OAuth 2.0 (3LO) with PKCE + HTTP Basic auth at the token endpoint (Bitbucket requires the client_secret even in PKCE flows). User-owned OAuth consumer, registered as **private** (each user is the sole holder of their consumer's credentials — that's the scenario "private" describes). Public would also work for our flow; we recommend private because it's the semantically honest label.
 - Windows token storage: DPAPI (`CryptProtectData`, user scope)
 - CI: GitHub Actions on `windows-latest`
 - Distribution: git-only for now (no npm publish)
@@ -140,11 +140,15 @@ strong new evidence:
   rides along as defense-in-depth.
 
 - **Public vs. private consumer is not about secrets.** Both kinds have
-  a `clientSecret`. The "This is a private consumer" checkbox enables
-  the `client_credentials` grant for server-to-server apps that ship
-  their own credentials — which we don't need. Keep the consumer
-  **public** for this project; the full 3LO+PKCE flow plus Basic auth
-  at the token endpoint works either way.
+  a `clientSecret`. The "private" checkbox additionally enables the
+  `client_credentials` grant (which we never invoke) and signals that
+  the credentials are held by the consumer's owner and not distributed.
+  Bitbucket's help text says apps that *ship* their credentials (baked
+  into a downloadable binary) should stay public; we don't ship any —
+  each user provisions their own consumer — so "private" is the honest
+  fit. Either setting works with our 3LO+PKCE+Basic flow; if you see
+  docs/tests assume one and behavior doesn't match, don't flip the
+  setting as a fix — check the real cause first.
 
 - **Windows DPAPI via PowerShell subprocess, not a native node module.**
   Spawning `powershell.exe` with a short
