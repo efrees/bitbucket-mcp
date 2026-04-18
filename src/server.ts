@@ -35,7 +35,11 @@ export interface CreateServerOptions {
 export function createServer(options: CreateServerOptions = {}): CreateServerResult {
   const config = loadConfig();
   const tokenStore = createDefaultTokenStore();
-  const auth = new AuthSession({ clientId: config.clientId, tokenStore });
+  const auth = new AuthSession({
+    clientId: config.clientId,
+    clientSecret: config.clientSecret,
+    tokenStore,
+  });
   const http = new BitbucketHttpClient(auth);
 
   const context: ToolContext = {

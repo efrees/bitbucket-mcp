@@ -19,6 +19,7 @@
 import { AuthError } from "../errors.js";
 import { log } from "../logger.js";
 import type { AuthProvider } from "../bitbucket/http-client.js";
+import { basicAuth } from "./login-flow.js";
 import { TOKEN_URL } from "./oauth-endpoints.js";
 import type { StoredToken, TokenStore } from "./token-store.js";
 
@@ -35,17 +36,20 @@ export interface TokenResponse {
 
 export interface AuthSessionOptions {
   readonly clientId: string;
+  readonly clientSecret: string;
   readonly tokenStore: TokenStore;
 }
 
 export class AuthSession implements AuthProvider {
   private readonly clientId: string;
+  private readonly clientSecret: string;
   private readonly tokenStore: TokenStore;
   private cached: StoredToken | null = null;
   private inflightRefresh: Promise<StoredToken> | null = null;
 
   constructor(opts: AuthSessionOptions) {
     this.clientId = opts.clientId;
+    this.clientSecret = opts.clientSecret;
     this.tokenStore = opts.tokenStore;
   }
 
@@ -106,11 +110,13 @@ export class AuthSession implements AuthProvider {
     const body = new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
-      client_id: this.clientId,
     });
     const response = await fetch(TOKEN_URL, {
       method: "POST",
       headers: {
+        // Bitbucket requires HTTP Basic auth at the token endpoint for
+        // refresh as well as initial exchange.
+        Authorization: basicAuth(this.clientId, this.clientSecret),
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
       },

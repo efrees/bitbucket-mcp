@@ -22,7 +22,11 @@ import { AuthError, ConfigError } from "../errors.js";
 export async function runLogin(): Promise<number> {
   const config = loadConfig();
   const tokenStore = createDefaultTokenStore();
-  const session = new AuthSession({ clientId: config.clientId, tokenStore });
+  const session = new AuthSession({
+    clientId: config.clientId,
+    clientSecret: config.clientSecret,
+    tokenStore,
+  });
 
   const callbackPort = parseCallbackPort(process.env["BITBUCKET_MCP_CALLBACK_PORT"]);
   process.stdout.write(
@@ -30,7 +34,11 @@ export async function runLogin(): Promise<number> {
       `(Callback will hit http://127.0.0.1:${callbackPort}/callback — ` +
       "this must match the callback URL on your OAuth consumer.)\n\n",
   );
-  const token = await performLogin({ clientId: config.clientId, callbackPort });
+  const token = await performLogin({
+    clientId: config.clientId,
+    clientSecret: config.clientSecret,
+    callbackPort,
+  });
   await session.setToken(token);
   process.stdout.write(
     `\nSuccess — logged in as ${token.user.displayName} (${token.user.uuid}).\n` +
@@ -49,7 +57,11 @@ export async function runLogout(): Promise<number> {
 export async function runWhoami(): Promise<number> {
   const config = loadConfig();
   const tokenStore = createDefaultTokenStore();
-  const session = new AuthSession({ clientId: config.clientId, tokenStore });
+  const session = new AuthSession({
+    clientId: config.clientId,
+    clientSecret: config.clientSecret,
+    tokenStore,
+  });
   try {
     const user = await session.whoami();
     process.stdout.write(
@@ -82,6 +94,7 @@ export async function runHelp(): Promise<number> {
       "",
       "Config:",
       "  BITBUCKET_MCP_CLIENT_ID       OAuth consumer key (required)",
+      "  BITBUCKET_MCP_CLIENT_SECRET   OAuth consumer secret (required)",
       "  BITBUCKET_MCP_WORKSPACE       default workspace slug (optional)",
       "  BITBUCKET_MCP_CALLBACK_PORT   loopback port for OAuth callback (default: 33378)",
       "  BITBUCKET_MCP_LOG_LEVEL       debug|info|warn|error (default: info)",

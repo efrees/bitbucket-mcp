@@ -1,9 +1,10 @@
 {
-  "_comment_1": "Copy this file to the path shown by `bitbucket-mcp whoami` when no config exists, then fill in clientId.",
+  "_comment_1": "Copy this file to the path shown in docs/setup.md and fill in your consumer's Key and Secret.",
   "_comment_2": "On Windows: %APPDATA%\\bitbucket-mcp\\config.json",
   "_comment_3": "On macOS:   ~/Library/Application Support/bitbucket-mcp/config.json",
   "_comment_4": "On Linux:   ~/.config/bitbucket-mcp/config.json (or $XDG_CONFIG_HOME/bitbucket-mcp/config.json)",
 
   "clientId": "REPLACE_WITH_YOUR_OAUTH_CONSUMER_KEY",
+  "clientSecret": "REPLACE_WITH_YOUR_OAUTH_CONSUMER_SECRET",
   "defaultWorkspace": "your-workspace-slug"
 }

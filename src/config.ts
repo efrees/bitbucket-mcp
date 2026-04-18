@@ -22,12 +22,20 @@ import { getAppPaths } from "./paths.js";
 export interface AppConfig {
   /** OAuth consumer key (the "client_id" in OAuth terms). Required for login. */
   readonly clientId: string;
+  /**
+   * OAuth consumer secret. Required by Bitbucket at the token endpoint
+   * even when PKCE is in use, so we persist it alongside the key.
+   * Living on the user's own machine in the user's config dir keeps the
+   * exposure footprint to their own OS user account.
+   */
+  readonly clientSecret: string;
   /** Optional default workspace slug used when tools are called without one. */
   readonly defaultWorkspace: string | undefined;
 }
 
 interface RawConfig {
   clientId?: unknown;
+  clientSecret?: unknown;
   defaultWorkspace?: unknown;
 }
 
@@ -55,6 +63,7 @@ export function loadConfig(): AppConfig {
   const file = readConfigFile(paths.configFile);
 
   const clientId = process.env["BITBUCKET_MCP_CLIENT_ID"] ?? file.clientId;
+  const clientSecret = process.env["BITBUCKET_MCP_CLIENT_SECRET"] ?? file.clientSecret;
   const defaultWorkspace = process.env["BITBUCKET_MCP_WORKSPACE"] ?? file.defaultWorkspace;
 
   if (typeof clientId !== "string" || clientId.length === 0) {
@@ -63,9 +72,17 @@ export function loadConfig(): AppConfig {
         `then set BITBUCKET_MCP_CLIENT_ID or put {"clientId": "..."} in ${paths.configFile}.`,
     );
   }
+  if (typeof clientSecret !== "string" || clientSecret.length === 0) {
+    throw new ConfigError(
+      `Missing OAuth client_secret. Bitbucket requires the secret at the token endpoint ` +
+        `even with PKCE. Copy the Secret from your OAuth consumer and set ` +
+        `BITBUCKET_MCP_CLIENT_SECRET or add {"clientSecret": "..."} to ${paths.configFile}.`,
+    );
+  }
 
   return {
     clientId,
+    clientSecret,
     defaultWorkspace:
       typeof defaultWorkspace === "string" && defaultWorkspace.length > 0
         ? defaultWorkspace

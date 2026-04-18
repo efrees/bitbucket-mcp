@@ -24,6 +24,7 @@ import type { StoredToken } from "./token-store.js";
 
 export interface PerformLoginOptions {
   readonly clientId: string;
+  readonly clientSecret: string;
   readonly scopes?: readonly string[];
   /**
    * Fixed loopback port for the OAuth callback. Must match the port on the
@@ -89,6 +90,7 @@ export async function performLogin(opts: PerformLoginOptions): Promise<StoredTok
 
   const tokenResponse = await exchangeCodeForToken({
     clientId: opts.clientId,
+    clientSecret: opts.clientSecret,
     code,
     verifier: pkce.verifier,
     redirectUri,
@@ -239,6 +241,7 @@ function troubleshootingHint(errorCode: string): string {
 
 interface ExchangeArgs {
   readonly clientId: string;
+  readonly clientSecret: string;
   readonly code: string;
   readonly verifier: string;
   readonly redirectUri: string;
@@ -249,12 +252,15 @@ async function exchangeCodeForToken(args: ExchangeArgs): Promise<TokenResponse> 
     grant_type: "authorization_code",
     code: args.code,
     code_verifier: args.verifier,
-    client_id: args.clientId,
     redirect_uri: args.redirectUri,
   });
   const response = await fetch(TOKEN_URL, {
     method: "POST",
     headers: {
+      // Bitbucket requires HTTP Basic auth at the token endpoint even
+      // when PKCE is in use; passing client_id only (in the body) is
+      // rejected with "Client credentials missing".
+      Authorization: basicAuth(args.clientId, args.clientSecret),
       "Content-Type": "application/x-www-form-urlencoded",
       Accept: "application/json",
     },
@@ -266,6 +272,12 @@ async function exchangeCodeForToken(args: ExchangeArgs): Promise<TokenResponse> 
   }
   return (await response.json()) as TokenResponse;
 }
+
+function basicAuth(id: string, secret: string): string {
+  return `Basic ${Buffer.from(`${id}:${secret}`, "utf8").toString("base64")}`;
+}
+
+export { basicAuth };
 
 interface IdentityResponse {
   uuid: string;
