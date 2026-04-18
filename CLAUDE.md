@@ -56,7 +56,7 @@ Don't re-litigate these without the user asking:
 
 - Runtime: TypeScript on Node.js 20+
 - Transport: stdio only (no hosted HTTP server)
-- Auth: Bitbucket Cloud OAuth 2.0 (3LO) with PKCE + HTTP Basic auth at the token endpoint (Bitbucket requires the client_secret even in PKCE flows); user-owned **private** OAuth consumer (clientId + clientSecret)
+- Auth: Bitbucket Cloud OAuth 2.0 (3LO) with PKCE + HTTP Basic auth at the token endpoint (Bitbucket requires the client_secret even in PKCE flows). User-owned OAuth consumer, kept **public** — the "private consumer" checkbox enables the `client_credentials` grant for apps that ship their credentials, which isn't our case. Both `clientId` and `clientSecret` are present on public consumers.
 - Windows token storage: DPAPI (`CryptProtectData`, user scope)
 - CI: GitHub Actions on `windows-latest`
 - Distribution: git-only for now (no npm publish)
@@ -137,10 +137,14 @@ strong new evidence:
   header) gets `unauthorized_client — Client credentials missing`. The
   fix is HTTP Basic auth (`Authorization: Basic base64(id:secret)`) on
   both `authorization_code` and `refresh_token` grants. PKCE still
-  rides along as defense-in-depth. Practically this means the consumer
-  must be registered as **private** (not public) — despite what the
-  OAuth 2.0 spec implies PKCE should enable, Bitbucket's implementation
-  does not accept it without credentials.
+  rides along as defense-in-depth.
+
+- **Public vs. private consumer is not about secrets.** Both kinds have
+  a `clientSecret`. The "This is a private consumer" checkbox enables
+  the `client_credentials` grant for server-to-server apps that ship
+  their own credentials — which we don't need. Keep the consumer
+  **public** for this project; the full 3LO+PKCE flow plus Basic auth
+  at the token endpoint works either way.
 
 - **Windows DPAPI via PowerShell subprocess, not a native node module.**
   Spawning `powershell.exe` with a short

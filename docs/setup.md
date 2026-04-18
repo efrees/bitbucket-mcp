@@ -9,7 +9,11 @@ Bitbucket Cloud account. Target platform is Windows.
 2. Fill in:
    - **Name**: anything, e.g. `bitbucket-mcp (local)`
    - **Callback URL**: `http://127.0.0.1:33378/callback`
-   - **This is a private consumer**: **checked**
+   - **This is a private consumer**: **unchecked** — Bitbucket's own
+     help text notes that the private checkbox enables the
+     `client_credentials` grant for installable apps that *ship* their
+     credentials. Since `bitbucket-mcp` runs locally with each user's
+     own consumer, leave it public.
    - **Permissions**: check Account → Read, Repositories → Read, and
      Pull requests → Read + Write
 3. Save. Copy both the **Key** and the **Secret** shown on the consumer
