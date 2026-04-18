@@ -9,8 +9,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AppConfig } from "../config.js";
-import type { AuthSession } from "../auth/session.js";
-import type { BitbucketHttpClient } from "../bitbucket/http-client.js";
+import type { AuthProvider, BitbucketHttpClient } from "../bitbucket/http-client.js";
 import * as createPrComment from "./create-pr-comment.js";
 import * as createPrInlineComment from "./create-pr-inline-comment.js";
 import * as getPullRequest from "./get-pull-request.js";
@@ -22,7 +21,7 @@ import * as replyToPrComment from "./reply-to-pr-comment.js";
 
 export interface ToolContext {
   readonly config: AppConfig;
-  readonly auth: AuthSession;
+  readonly auth: AuthProvider;
   readonly http: BitbucketHttpClient;
   /**
    * True when the operator started the MCP server with `--allow-writes`.

@@ -13,9 +13,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createDefaultTokenStore } from "./auth/index.js";
+import { ClientCredentialsAuth } from "./auth/client-credentials-auth.js";
 import { AuthSession } from "./auth/session.js";
+import type { AuthProvider } from "./bitbucket/http-client.js";
 import { BitbucketHttpClient } from "./bitbucket/http-client.js";
 import { loadConfig } from "./config.js";
+import type { AppConfig } from "./config.js";
 import { log } from "./logger.js";
 import { registerTools, ToolContext } from "./tools/index.js";
 
@@ -34,12 +37,7 @@ export interface CreateServerOptions {
 
 export function createServer(options: CreateServerOptions = {}): CreateServerResult {
   const config = loadConfig();
-  const tokenStore = createDefaultTokenStore();
-  const auth = new AuthSession({
-    clientId: config.clientId,
-    clientSecret: config.clientSecret,
-    tokenStore,
-  });
+  const auth = createAuthProvider(config);
   const http = new BitbucketHttpClient(auth);
 
   const context: ToolContext = {
@@ -54,6 +52,25 @@ export function createServer(options: CreateServerOptions = {}): CreateServerRes
   );
   registerTools(server, context);
   return { server, context };
+}
+
+/**
+ * Build the right AuthProvider for the configured authMode. Exported so
+ * CLI commands can build one without duplicating the switch.
+ */
+export function createAuthProvider(config: AppConfig): AuthProvider {
+  if (config.authMode === "client_credentials") {
+    return new ClientCredentialsAuth({
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+    });
+  }
+  const tokenStore = createDefaultTokenStore();
+  return new AuthSession({
+    clientId: config.clientId,
+    clientSecret: config.clientSecret,
+    tokenStore,
+  });
 }
 
 export async function startStdioServer(options: CreateServerOptions = {}): Promise<void> {
