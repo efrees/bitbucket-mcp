@@ -9,6 +9,10 @@ dist/
 # Claude Code worktrees — ephemeral, per-task working copies
 .claude/worktrees/
 
+# Project-level MCP server config — contains client secret in plaintext.
+# Each user creates this for their own machine; it must never be shared.
+.mcp.json
+
 # Local config & secrets — never commit
 .env
 .env.*

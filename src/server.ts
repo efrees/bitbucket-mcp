@@ -2,8 +2,10 @@
  * MCP server factory and startup helper.
  *
  * `createServer` builds an `McpServer` and registers each tool from
- * `src/tools/`. `startStdioServer` wires it up to stdio and returns
- * once the connection is established.
+ * `src/tools/`. `startStdioServer` wires it up to stdio and resolves
+ * only when the transport closes (i.e. when the MCP client shuts the
+ * server down by closing stdin), so the process stays alive serving
+ * requests for the duration of the session.
  *
  * Tool handlers receive the `ToolContext` so they can make Bitbucket
  * API calls against the authenticated session without reaching for
@@ -78,4 +80,22 @@ export async function startStdioServer(options: CreateServerOptions = {}): Promi
   const transport = new StdioServerTransport();
   await server.connect(transport);
   log.info("bitbucket-mcp: stdio server ready", { writesAllowed: context.writesAllowed });
+
+  // server.connect() resolves once the transport is *attached*, not when the
+  // connection ends. If we returned here, main() would call process.exit(0)
+  // before the client ever got to send its `initialize` request and the
+  // server would die mid-handshake. Block until stdin closes (the MCP client
+  // shutting us down) or the transport reports close/error.
+  //
+  // Note: the SDK's StdioServerTransport only fires its own `onclose` from
+  // an explicit `transport.close()` call — it does NOT listen for stdin's
+  // 'end' event itself. So we listen on stdin directly and treat that as
+  // our signal to wind down.
+  await new Promise<void>((resolve, reject) => {
+    transport.onclose = () => resolve();
+    transport.onerror = (err) => reject(err);
+    process.stdin.once("end", () => resolve());
+    process.stdin.once("close", () => resolve());
+  });
+  log.info("bitbucket-mcp: stdio transport closed; exiting");
 }
