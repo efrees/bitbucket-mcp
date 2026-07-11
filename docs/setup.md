@@ -1,7 +1,9 @@
 # Setup guide — bitbucket-mcp
 
 End-to-end walkthrough for getting the server running against your own
-Bitbucket Cloud account. Target platform is Windows.
+Bitbucket Cloud account. Windows, macOS, and Linux are supported; shell
+examples are PowerShell — translate paths and env-var syntax for your
+shell as needed.
 
 ## Pick an auth mode
 
@@ -71,8 +73,15 @@ node dist/index.js login
 ```
 
 Your browser opens the Bitbucket consent page. After you approve, the
-CLI exchanges the code for tokens and stores them encrypted via
-**Windows DPAPI** (scoped to your Windows user account).
+CLI exchanges the code for tokens and stores them in your OS's secret
+store: **DPAPI** on Windows (scoped to your Windows user account), the
+login **Keychain** on macOS, or the **Secret Service** (GNOME Keyring /
+KWallet, via `secret-tool`) on Linux.
+
+> **Linux note:** the Secret Service backend needs `secret-tool`
+> (Debian/Ubuntu: `apt install libsecret-tools`) and a running keyring
+> daemon. Headless machines without one should use `client_credentials`
+> mode, which never persists tokens to disk.
 
 ## 5. Verify
 

@@ -57,7 +57,7 @@ Don't re-litigate these without the user asking:
 - Runtime: TypeScript on Node.js 22+ (needs `node --test` glob support, which landed in 21)
 - Transport: stdio only (no hosted HTTP server)
 - Auth: dual-mode. `client_credentials` grant (headless, bot-attributed actions, workspace-scoped token, no refresh token) is the default. `authorization_code` (3LO, user-attributed, browser consent, DPAPI-persisted refresh) is available via `authMode: "authorization_code"`. Both require `clientId` + `clientSecret` (HTTP Basic auth at the token endpoint). User-owned **private** OAuth consumer.
-- Windows token storage: DPAPI (`CryptProtectData`, user scope)
+- Secret storage: OS-native vault behind the `SecretVault` interface — Windows DPAPI, macOS Keychain (`security` CLI), Linux Secret Service (`secret-tool`); all via OS-bundled CLIs as subprocesses, never native npm modules
 - CI: GitHub Actions on `windows-latest`
 - Distribution: git-only for now (no npm publish)
 

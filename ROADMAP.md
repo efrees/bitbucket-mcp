@@ -12,7 +12,7 @@ code reviews and act on reviewer feedback.
 | Transport | Local **stdio** only | Each user runs the server on their own machine; no hosted service |
 | Auth model | **Dual-mode: `client_credentials` (default) or `authorization_code`** | Default is headless: a workspace-scoped token fetched on demand via HTTP Basic + `client_credentials`, no browser. Optional 3LO mode (`authMode: "authorization_code"`) gives user-attributed actions via browser consent + DPAPI-persisted refresh. |
 | OAuth consumer | **User-owned, private** | Each user registers a private OAuth consumer in their own Bitbucket workspace and supplies its `clientId` + `clientSecret` (required in both modes). The private designation enables `client_credentials` and matches the "credentials held by the user" reality. |
-| Token storage | Encrypted file under user config dir | Windows: **DPAPI** (`CryptProtectData`, user-scoped) — silent, no passphrase. macOS/Linux: TBD (see open question #3) |
+| Token storage | OS-native secret vault | Windows: **DPAPI** (`CryptProtectData`, user-scoped). macOS: **Keychain** (via the bundled `security` CLI). Linux: **Secret Service / libsecret** (via `secret-tool`). All silent, no passphrase, no native npm modules. |
 | Multi-account on one machine | Profile-based; v1 supports a default profile, v2 adds named profiles |
 | Bitbucket API version | REST API 2.0 | Base: `https://api.bitbucket.org/2.0` |
 
@@ -43,9 +43,11 @@ when user-attributed actions are required.
 - [x] `bitbucket-mcp logout` — wipes DPAPI-persisted tokens (authorization_code mode only)
 - [x] `bitbucket-mcp whoami` — describes current auth state in either mode
 - [x] Token refresh middleware in the HTTP client — refresh on 401 or near-expiry (both modes)
-- [x] Encryption-at-rest for stored refresh tokens
-  - **Windows:** DPAPI via PowerShell subprocess using `System.Security.Cryptography.ProtectedData` (CurrentUser scope). Ciphertext at `%APPDATA%\bitbucket-mcp\tokens.bin`. Only relevant to authorization_code mode.
-  - **macOS / Linux:** `createDefaultTokenStore()` throws `AuthError` on non-Windows platforms. Tracked in open question #3. client_credentials mode has no on-disk persistence, so it's cross-platform today.
+- [x] Encryption-at-rest for stored refresh tokens (only relevant to authorization_code mode; client_credentials never touches disk)
+  - **Windows:** DPAPI via PowerShell subprocess using `System.Security.Cryptography.ProtectedData` (CurrentUser scope). Ciphertext at `%APPDATA%\bitbucket-mcp\tokens.bin`.
+  - **macOS:** login Keychain via the bundled `security` CLI (generic password, service `bitbucket-mcp`).
+  - **Linux:** Secret Service via `secret-tool` (libsecret). Requires a running keyring daemon; headless machines fall back to env-var credentials.
+  - All three sit behind the `SecretVault` interface (`src/auth/secret-vault.ts`); secrets travel over stdin/stdout, never argv.
 - [x] Config loader: reads `authMode`, `clientId`, `clientSecret`, optional `defaultWorkspace` from `<configDir>/config.json` or `BITBUCKET_MCP_*` env vars
 
 ## Phase 2 — Read-side MCP tools (PR context)
@@ -96,7 +98,7 @@ ships. Flagging them here so they don't get lost.
 
 1. ~~**CI host** — GitHub Actions or Bitbucket Pipelines?~~ **Resolved: GitHub Actions** (project will be hosted on GitHub).
 2. ~~**Distribution** — Publish to npm as `bitbucket-mcp`, or keep it as a git-installable tool only?~~ **Resolved: git-only for now.** Users install via `git clone` + `npm install` + `npm run build`, then point their MCP client at the built `dist/index.js`. Revisit if/when the tool stabilizes enough for an npm release.
-3. **Encryption — non-Windows platforms.** Windows uses DPAPI (resolved). For macOS and Linux, what's the fallback? Options: (a) native OS keychain (macOS Keychain via Security framework, Linux Secret Service / libsecret) — silent but adds a native-module dependency and has Linux-on-headless-server edge cases; (b) passphrase-derived AES-GCM, prompted at `login` and cached in-memory per process; (c) refuse to run on those platforms until a user explicitly opts in. Leaning (a), but not a blocker until we need cross-platform. (Phase 1+)
+3. ~~**Encryption — non-Windows platforms.** Windows uses DPAPI (resolved). For macOS and Linux, what's the fallback?~~ **Resolved: option (a), OS keychains — without the native-module cost.** macOS uses the bundled `security` CLI, Linux uses `secret-tool` (libsecret), both driven as subprocesses, matching the DPAPI-via-PowerShell pattern. The Linux-on-headless-server edge case is handled by falling back to env-var credentials rather than a passphrase flow.
 4. ~~**Diff size cap** — default max diff size before forcing the agent to fetch diffstat?~~ **Resolved: 250 KB default, 2 MB hard ceiling.** Configurable per call via the `max_bytes` argument on `bitbucket_get_pull_request_diff`; UTF-8-safe truncation with an explicit marker pointing at the diffstat tool.
 5. ~~**Inline comment line semantics** — expose raw `to`/`from` or simplify?~~ **Resolved: `(side: 'new'|'old', line: number)`.** The tool schema makes Bitbucket's "exactly one of to/from per comment" rule unrepresentable-as-invalid.
 6. ~~**Write confirmation** — dry-run preview + `confirm: true`, or trust the agent once `--allow-writes` is on?~~ **Resolved: trust the agent once `--allow-writes` is on.** The startup flag is the operator-level gate; requiring a per-call confirmation on top would cripple agent autonomy. Operators who want a stricter policy can simply not pass `--allow-writes`.
