@@ -13,6 +13,7 @@ const MANAGED_ENV = [
   "BITBUCKET_MCP_CLIENT_ID",
   "BITBUCKET_MCP_CLIENT_SECRET",
   "BITBUCKET_MCP_WORKSPACE",
+  "BITBUCKET_MCP_CALLBACK_PORT",
   "APPDATA",
   "XDG_CONFIG_HOME",
   "HOME",
@@ -114,6 +115,24 @@ test("missing secret everywhere raises ConfigError mentioning set-secret", async
       () => loadConfig(fakeVault(null)),
       (err: unknown) => err instanceof ConfigError && /set-secret/.test((err as Error).message),
     );
+  });
+});
+
+test("callbackPort defaults to 33378 and honors env override", async () => {
+  await withIsolatedConfig({ clientId: "id-1" }, async () => {
+    const defaulted = await loadConfig(fakeVault("s"));
+    assert.equal(defaulted.callbackPort, 33378);
+
+    process.env["BITBUCKET_MCP_CALLBACK_PORT"] = "40100";
+    const overridden = await loadConfig(fakeVault("s"));
+    assert.equal(overridden.callbackPort, 40100);
+    delete process.env["BITBUCKET_MCP_CALLBACK_PORT"];
+  });
+});
+
+test("invalid callbackPort raises ConfigError", async () => {
+  await withIsolatedConfig({ clientId: "id-1", callbackPort: "not-a-port" }, async () => {
+    await assert.rejects(() => loadConfig(fakeVault("s")), ConfigError);
   });
 });
 

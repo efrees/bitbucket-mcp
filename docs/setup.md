@@ -110,6 +110,13 @@ KWallet, via `secret-tool`) on Linux.
 > daemon. Headless machines without one should use `client_credentials`
 > mode, which never persists tokens to disk.
 
+Once the server is wired into an MCP client (step 7), you can also log
+in without a terminal: ask the agent to call the **`bitbucket_login`**
+tool, which opens the same browser consent flow and stores the tokens.
+MCP clients' built-in OAuth menus (like Claude Code's `/mcp` →
+Reauthenticate) only apply to remote HTTP servers, so this tool is the
+in-client equivalent for a local stdio server.
+
 ## 6. Verify
 
 ```powershell
@@ -171,6 +178,7 @@ require `--allow-writes` at startup.
   consumer's callback URL to match.
 
 - **Refresh fails after a long idle** (authorization_code mode only) —
-  refresh tokens can be revoked. Run `logout` then `login`.
+  refresh tokens can be revoked. Run `logout` then `login`, or ask the
+  agent to call the `bitbucket_login` tool.
 
 - **"Write tools are disabled"** — start the server with `--allow-writes`.

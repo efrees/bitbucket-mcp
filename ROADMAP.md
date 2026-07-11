@@ -40,6 +40,7 @@ when user-attributed actions are required.
   loopback callback. Tokens persisted via DPAPI on Windows. Tokens auto-
   refresh on expiry or 401.
 - [x] `bitbucket-mcp login` — 3LO flow (authorization_code mode only)
+- [x] `bitbucket_login` MCP tool — same 3LO flow, triggerable from inside an MCP client (registered in authorization_code mode only). Exists because MCP clients' OAuth UX (e.g. Claude Code `/mcp` → Reauthenticate) covers remote HTTP servers only, not local stdio servers.
 - [x] `bitbucket-mcp logout` — wipes DPAPI-persisted tokens (authorization_code mode only)
 - [x] `bitbucket-mcp whoami` — describes current auth state in either mode
 - [x] Token refresh middleware in the HTTP client — refresh on 401 or near-expiry (both modes)

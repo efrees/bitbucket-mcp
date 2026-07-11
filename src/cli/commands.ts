@@ -19,7 +19,7 @@ import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
 import { ClientCredentialsAuth } from "../auth/client-credentials-auth.js";
 import { createDefaultTokenStore, createDefaultVault } from "../auth/index.js";
-import { DEFAULT_CALLBACK_PORT, performLogin } from "../auth/login-flow.js";
+import { performLogin } from "../auth/login-flow.js";
 import { AuthSession } from "../auth/session.js";
 import { CLIENT_SECRET_VAULT_KEY, configFileHasPlaintextSecret, loadConfig } from "../config.js";
 import type { AppConfig } from "../config.js";
@@ -43,7 +43,7 @@ export async function runLogin(): Promise<number> {
     tokenStore,
   });
 
-  const callbackPort = parseCallbackPort(process.env["BITBUCKET_MCP_CALLBACK_PORT"]);
+  const callbackPort = config.callbackPort;
   process.stdout.write(
     "Starting Bitbucket login. Your browser will open for consent.\n" +
       `(Callback will hit http://127.0.0.1:${callbackPort}/callback — ` +
@@ -201,17 +201,6 @@ export async function runHelp(): Promise<number> {
     ].join("\n"),
   );
   return 0;
-}
-
-function parseCallbackPort(raw: string | undefined): number {
-  if (!raw) return DEFAULT_CALLBACK_PORT;
-  const n = Number(raw);
-  if (!Number.isInteger(n) || n < 1 || n > 65535) {
-    throw new ConfigError(
-      `BITBUCKET_MCP_CALLBACK_PORT must be an integer in 1..65535, got: ${raw}`,
-    );
-  }
-  return n;
 }
 
 /** Convert an error thrown by a command into a process exit code + stderr line. */

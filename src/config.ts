@@ -24,6 +24,7 @@
 import { readFileSync } from "node:fs";
 import { createDefaultVault } from "./auth/index.js";
 import type { SecretVault } from "./auth/index.js";
+import { DEFAULT_CALLBACK_PORT } from "./auth/login-flow.js";
 import { ConfigError } from "./errors.js";
 import { log } from "./logger.js";
 import { getAppPaths } from "./paths.js";
@@ -56,6 +57,12 @@ export interface AppConfig {
   readonly clientSecret: string;
   /** Optional default workspace slug used when tools are called without one. */
   readonly defaultWorkspace: string | undefined;
+  /**
+   * Loopback port for the 3LO OAuth callback (authorization_code mode).
+   * Must match the port registered on the Bitbucket consumer's callback
+   * URL exactly. Default: 33378 (see DEFAULT_CALLBACK_PORT rationale).
+   */
+  readonly callbackPort: number;
 }
 
 export interface RawConfig {
@@ -63,6 +70,7 @@ export interface RawConfig {
   clientId?: unknown;
   clientSecret?: unknown;
   defaultWorkspace?: unknown;
+  callbackPort?: unknown;
 }
 
 export function readConfigFile(path: string): RawConfig {
@@ -102,8 +110,10 @@ export async function loadConfig(vault?: SecretVault): Promise<AppConfig> {
   const rawAuthMode = process.env["BITBUCKET_MCP_AUTH_MODE"] ?? file.authMode;
   const clientId = process.env["BITBUCKET_MCP_CLIENT_ID"] ?? file.clientId;
   const defaultWorkspace = process.env["BITBUCKET_MCP_WORKSPACE"] ?? file.defaultWorkspace;
+  const rawCallbackPort = process.env["BITBUCKET_MCP_CALLBACK_PORT"] ?? file.callbackPort;
 
   const authMode = parseAuthMode(rawAuthMode);
+  const callbackPort = parseCallbackPort(rawCallbackPort);
 
   if (typeof clientId !== "string" || clientId.length === 0) {
     throw new ConfigError(
@@ -122,6 +132,7 @@ export async function loadConfig(vault?: SecretVault): Promise<AppConfig> {
       typeof defaultWorkspace === "string" && defaultWorkspace.length > 0
         ? defaultWorkspace
         : undefined,
+    callbackPort,
   };
 }
 
@@ -160,6 +171,17 @@ async function resolveClientSecret(
       `even with PKCE. Copy the Secret from your OAuth consumer, then store it with ` +
       `\`bitbucket-mcp set-secret\` (recommended) or set BITBUCKET_MCP_CLIENT_SECRET.`,
   );
+}
+
+function parseCallbackPort(raw: unknown): number {
+  if (raw === undefined || raw === null || raw === "") return DEFAULT_CALLBACK_PORT;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 65535) {
+    throw new ConfigError(
+      `callbackPort / BITBUCKET_MCP_CALLBACK_PORT must be an integer in 1..65535, got: ${JSON.stringify(raw)}`,
+    );
+  }
+  return n;
 }
 
 function parseAuthMode(raw: unknown): AuthMode {

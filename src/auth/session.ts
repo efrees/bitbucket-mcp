@@ -90,7 +90,8 @@ export class AuthSession implements AuthProvider {
     const loaded = await this.tokenStore.load();
     if (!loaded) {
       throw new AuthError(
-        `No stored Bitbucket credentials. Run \`bitbucket-mcp login\` first.`,
+        `No stored Bitbucket credentials. Run \`bitbucket-mcp login\` in a terminal, ` +
+          `or call the bitbucket_login tool from your MCP client.`,
       );
     }
     this.cached = loaded;
@@ -126,7 +127,8 @@ export class AuthSession implements AuthProvider {
       const detail = await response.text().catch(() => "");
       throw new AuthError(
         `Refresh failed (${response.status}): ${detail.slice(0, 300)}. ` +
-          `If this keeps happening, run \`bitbucket-mcp login\` to reauthenticate.`,
+          `If this keeps happening, reauthenticate: run \`bitbucket-mcp login\` in a ` +
+          `terminal, or call the bitbucket_login tool from your MCP client.`,
       );
     }
     const tr = (await response.json()) as TokenResponse;

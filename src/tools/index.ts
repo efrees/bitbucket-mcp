@@ -17,6 +17,7 @@ import * as getPullRequestDiff from "./get-pull-request-diff.js";
 import * as getPullRequestDiffstat from "./get-pull-request-diffstat.js";
 import * as listPullRequestComments from "./list-pull-request-comments.js";
 import * as listPullRequests from "./list-pull-requests.js";
+import * as login from "./login.js";
 import * as replyToPrComment from "./reply-to-pr-comment.js";
 
 export interface ToolContext {
@@ -34,6 +35,13 @@ export interface ToolContext {
 }
 
 export function registerTools(server: McpServer, ctx: ToolContext): void {
+  // Auth tools. Login is only meaningful in authorization_code mode;
+  // registering it conditionally keeps it out of the client's tool list
+  // (rather than present-but-erroring) in client_credentials mode.
+  if (ctx.config.authMode === "authorization_code") {
+    login.register(server, ctx);
+  }
+
   // Read-side tools (always on).
   listPullRequests.register(server, ctx);
   getPullRequest.register(server, ctx);

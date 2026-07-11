@@ -162,6 +162,15 @@ strong new evidence:
   coinage — it's RFC 6749 §1.3.4. Bitbucket's "private consumer" note
   uses the term correctly.
 
+- **Claude Code's `/mcp` Authenticate/Reauthenticate can't be used by
+  this server.** That UI implements OAuth for *remote HTTP* MCP servers
+  (RFC 8414/9728 metadata discovery, optional dynamic client
+  registration); stdio servers are outside its scope entirely, and
+  that's a deliberate architectural split, not a gap likely to close.
+  The idiomatic stdio equivalent — and what we do — is an MCP tool
+  (`bitbucket_login`) that runs the loopback browser flow in-process.
+  Don't burn time trying to wire stdio into the client-side OAuth UX.
+
 - **Windows DPAPI via PowerShell subprocess, not a native node module.**
   Spawning `powershell.exe` with a short
   `System.Security.Cryptography.ProtectedData` script is ~100ms per op,
