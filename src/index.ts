@@ -7,7 +7,15 @@
  * `bitbucket-mcp help`.
  */
 
-import { runHelp, runLogin, runLogout, runWhoami, reportError } from "./cli/commands.js";
+import {
+  runClearSecret,
+  runHelp,
+  runLogin,
+  runLogout,
+  runSetSecret,
+  runWhoami,
+  reportError,
+} from "./cli/commands.js";
 import { startStdioServer } from "./server.js";
 
 async function main(): Promise<number> {
@@ -28,6 +36,10 @@ async function main(): Promise<number> {
         return await runLogout();
       case "whoami":
         return await runWhoami();
+      case "set-secret":
+        return await runSetSecret();
+      case "clear-secret":
+        return await runClearSecret();
       case "help":
       case "--help":
       case "-h":

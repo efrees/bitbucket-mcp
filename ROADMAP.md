@@ -11,7 +11,7 @@ code reviews and act on reviewer feedback.
 | Language / runtime | TypeScript on Node.js 22+ | Uses `@modelcontextprotocol/sdk` |
 | Transport | Local **stdio** only | Each user runs the server on their own machine; no hosted service |
 | Auth model | **Dual-mode: `client_credentials` (default) or `authorization_code`** | Default is headless: a workspace-scoped token fetched on demand via HTTP Basic + `client_credentials`, no browser. Optional 3LO mode (`authMode: "authorization_code"`) gives user-attributed actions via browser consent + DPAPI-persisted refresh. |
-| OAuth consumer | **User-owned, private** | Each user registers a private OAuth consumer in their own Bitbucket workspace and supplies its `clientId` + `clientSecret` (required in both modes). The private designation enables `client_credentials` and matches the "credentials held by the user" reality. |
+| OAuth consumer | **User-owned, private** | Each user registers a private OAuth consumer in their own Bitbucket workspace and supplies its `clientId` + `clientSecret` (required in both modes). The private designation enables `client_credentials` and matches the "credentials held by the user" reality. The secret lives in the OS secret vault (`set-secret`) or an env var — not plaintext config. |
 | Token storage | OS-native secret vault | Windows: **DPAPI** (`CryptProtectData`, user-scoped). macOS: **Keychain** (via the bundled `security` CLI). Linux: **Secret Service / libsecret** (via `secret-tool`). All silent, no passphrase, no native npm modules. |
 | Multi-account on one machine | Profile-based; v1 supports a default profile, v2 adds named profiles |
 | Bitbucket API version | REST API 2.0 | Base: `https://api.bitbucket.org/2.0` |
@@ -48,7 +48,8 @@ when user-attributed actions are required.
   - **macOS:** login Keychain via the bundled `security` CLI (generic password, service `bitbucket-mcp`).
   - **Linux:** Secret Service via `secret-tool` (libsecret). Requires a running keyring daemon; headless machines fall back to env-var credentials.
   - All three sit behind the `SecretVault` interface (`src/auth/secret-vault.ts`); secrets travel over stdin/stdout, never argv.
-- [x] Config loader: reads `authMode`, `clientId`, `clientSecret`, optional `defaultWorkspace` from `<configDir>/config.json` or `BITBUCKET_MCP_*` env vars
+- [x] Config loader: reads `authMode`, `clientId`, optional `defaultWorkspace` from `<configDir>/config.json` or `BITBUCKET_MCP_*` env vars
+- [x] Client secret at rest: `bitbucket-mcp set-secret` / `clear-secret` keep the OAuth consumer secret in the OS secret vault instead of plaintext config. Resolution order: `BITBUCKET_MCP_CLIENT_SECRET` env var → vault → plaintext `clientSecret` in config.json (deprecated; logs a warning steering to `set-secret`)
 
 ## Phase 2 — Read-side MCP tools (PR context)
 

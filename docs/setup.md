@@ -39,18 +39,22 @@ npm install
 npm run build
 ```
 
-## 3. Configure credentials
+## 3. Configure the server
 
-Either put them in `config.json` (see [`config.example.json`](../config.example.json))
-or set them as environment variables. Env vars win if both are set.
+Non-secret settings go in `config.json` (see
+[`config.example.json`](../config.example.json)) or environment
+variables. Env vars win if both are set.
 
-**Config file path (Windows):** `%APPDATA%\bitbucket-mcp\config.json`
+**Config file paths:**
+
+- Windows: `%APPDATA%\bitbucket-mcp\config.json`
+- macOS: `~/Library/Application Support/bitbucket-mcp/config.json`
+- Linux: `~/.config/bitbucket-mcp/config.json`
 
 ```json
 {
   "authMode": "client_credentials",
   "clientId": "YOUR_CONSUMER_KEY",
-  "clientSecret": "YOUR_CONSUMER_SECRET",
   "defaultWorkspace": "your-workspace-slug"
 }
 ```
@@ -58,13 +62,36 @@ or set them as environment variables. Env vars win if both are set.
 **Or via env vars:**
 
 ```powershell
-$env:BITBUCKET_MCP_AUTH_MODE   = "client_credentials"   # or authorization_code
-$env:BITBUCKET_MCP_CLIENT_ID   = "YOUR_CONSUMER_KEY"
-$env:BITBUCKET_MCP_CLIENT_SECRET = "YOUR_CONSUMER_SECRET"
-$env:BITBUCKET_MCP_WORKSPACE   = "your-workspace-slug"  # optional
+$env:BITBUCKET_MCP_AUTH_MODE = "client_credentials"   # or authorization_code
+$env:BITBUCKET_MCP_CLIENT_ID = "YOUR_CONSUMER_KEY"
+$env:BITBUCKET_MCP_WORKSPACE = "your-workspace-slug"  # optional
 ```
 
-## 4. (authorization_code mode only) Log in
+## 4. Store the consumer secret
+
+The consumer **Secret** is a live credential — anyone holding it can
+mint workspace-scoped tokens — so it doesn't belong in a plaintext
+file. Store it in your OS's secret store:
+
+```powershell
+node dist/index.js set-secret
+```
+
+You'll be prompted to paste the Secret (input is hidden). It's stored
+via **DPAPI** on Windows, the login **Keychain** on macOS, or the
+**Secret Service** (GNOME Keyring / KWallet) on Linux. Non-interactive
+setups can pipe it instead: `echo $SECRET | node dist/index.js set-secret`.
+
+Alternatively, set the `BITBUCKET_MCP_CLIENT_SECRET` environment
+variable — this always takes precedence over the stored copy, and is
+the right choice for CI or headless Linux machines without a keyring
+daemon. Use `clear-secret` to remove a stored secret.
+
+> A plaintext `clientSecret` field in `config.json` still works for
+> backward compatibility, but logs a deprecation warning at startup.
+> Move it into the secret store and delete it from the file.
+
+## 5. (authorization_code mode only) Log in
 
 Skip this step if you picked `client_credentials`.
 
@@ -83,7 +110,7 @@ KWallet, via `secret-tool`) on Linux.
 > daemon. Headless machines without one should use `client_credentials`
 > mode, which never persists tokens to disk.
 
-## 5. Verify
+## 6. Verify
 
 ```powershell
 node dist/index.js whoami
@@ -93,16 +120,17 @@ In `client_credentials` mode this fetches a token and confirms your
 credentials work. In `authorization_code` mode it prints the Bitbucket
 user you logged in as.
 
-## 6. Wire into your MCP client
+## 7. Wire into your MCP client
 
 Point your MCP client at the built entry point:
 
 - **Command:** `node`
 - **Args:** `["C:\\absolute\\path\\to\\bitbucket-mcp\\dist\\index.js"]`
   (append `"--allow-writes"` to enable the comment-posting tools)
-- **Env:** `BITBUCKET_MCP_CLIENT_ID`, `BITBUCKET_MCP_CLIENT_SECRET`,
-  `BITBUCKET_MCP_AUTH_MODE` (if not `client_credentials`),
-  optionally `BITBUCKET_MCP_WORKSPACE`
+- **Env:** only what you didn't put in `config.json` / the secret
+  store — typically nothing. Available: `BITBUCKET_MCP_CLIENT_ID`,
+  `BITBUCKET_MCP_CLIENT_SECRET` (if not using `set-secret`),
+  `BITBUCKET_MCP_AUTH_MODE`, `BITBUCKET_MCP_WORKSPACE`
 
 Read-only tools run by default. Write tools (`bitbucket_create_pr_comment`,
 `bitbucket_reply_to_pr_comment`, `bitbucket_create_pr_inline_comment`)
@@ -116,8 +144,14 @@ require `--allow-writes` at startup.
   actions.
 
 - **Token fetch fails with `unauthorized_client — Client credentials
-  missing`** — `clientSecret` is not set. Copy the Secret from your
-  consumer and set it via config.json or `BITBUCKET_MCP_CLIENT_SECRET`.
+  missing`** — the consumer secret is not set. Copy the Secret from
+  your consumer and store it with `set-secret` (or set
+  `BITBUCKET_MCP_CLIENT_SECRET`).
+
+- **`set-secret` fails on Linux** — the Secret Service backend needs
+  `secret-tool` (`apt install libsecret-tools`) and a running keyring
+  daemon. On headless machines, use `BITBUCKET_MCP_CLIENT_SECRET`
+  instead.
 
 - **`unsupported_response_type`** (authorization_code mode only) — the
   OAuth consumer is misconfigured. Re-check step 1: callback URL is

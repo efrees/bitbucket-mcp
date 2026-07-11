@@ -1,9 +1,15 @@
 /**
  * Config loader.
  *
- * Reads the user's OAuth consumer `client_id` and optional defaults from
- * `<configDir>/config.json` or env vars (env overrides file, so CI and
- * ad-hoc overrides don't require editing the file).
+ * Non-secret settings (`authMode`, `clientId`, `defaultWorkspace`) come
+ * from `<configDir>/config.json` or env vars (env overrides file, so CI
+ * and ad-hoc overrides don't require editing the file).
+ *
+ * The OAuth `clientSecret` is a live credential and is resolved with a
+ * different precedence: env var, then the OS secret vault (populated by
+ * `bitbucket-mcp set-secret`), then — deprecated, with a warning — a
+ * plaintext `clientSecret` field in config.json. The plaintext path
+ * exists only so pre-vault setups keep working while they migrate.
  *
  * A minimal config looks like:
  *
@@ -16,8 +22,14 @@
  */
 
 import { readFileSync } from "node:fs";
+import { createDefaultVault } from "./auth/index.js";
+import type { SecretVault } from "./auth/index.js";
 import { ConfigError } from "./errors.js";
+import { log } from "./logger.js";
 import { getAppPaths } from "./paths.js";
+
+/** Vault key under which `set-secret` stores the OAuth consumer secret. */
+export const CLIENT_SECRET_VAULT_KEY = "client-secret";
 
 /**
  * Auth mode the server runs in.
@@ -26,8 +38,8 @@ import { getAppPaths } from "./paths.js";
  *    no refresh tokens. Actions are attributed to the OAuth consumer
  *    itself rather than to a specific Bitbucket user. Default.
  *  - `"authorization_code"` — interactive 3LO flow: the user logs in
- *    via browser once, tokens are persisted via DPAPI, and actions
- *    are attributed to the human user who consented.
+ *    via browser once, tokens are persisted in the OS secret vault, and
+ *    actions are attributed to the human user who consented.
  */
 export type AuthMode = "client_credentials" | "authorization_code";
 
@@ -38,22 +50,22 @@ export interface AppConfig {
   readonly clientId: string;
   /**
    * OAuth consumer secret. Required by Bitbucket at the token endpoint
-   * in both auth modes. Living on the user's own machine in the user's
-   * config dir keeps the exposure footprint to their own OS user account.
+   * in both auth modes. Resolved from env / OS vault / config.json —
+   * see the module doc comment for precedence.
    */
   readonly clientSecret: string;
   /** Optional default workspace slug used when tools are called without one. */
   readonly defaultWorkspace: string | undefined;
 }
 
-interface RawConfig {
+export interface RawConfig {
   authMode?: unknown;
   clientId?: unknown;
   clientSecret?: unknown;
   defaultWorkspace?: unknown;
 }
 
-function readConfigFile(path: string): RawConfig {
+export function readConfigFile(path: string): RawConfig {
   try {
     const raw = readFileSync(path, "utf8");
     const parsed = JSON.parse(raw) as unknown;
@@ -68,17 +80,27 @@ function readConfigFile(path: string): RawConfig {
   }
 }
 
+/** True if config.json still carries a plaintext clientSecret (deprecated). */
+export function configFileHasPlaintextSecret(): boolean {
+  const file = readConfigFile(getAppPaths().configFile);
+  return typeof file.clientSecret === "string" && file.clientSecret.length > 0;
+}
+
 /**
- * Load the config from disk + env. Throws `ConfigError` if required fields
- * are missing — callers can catch and present a user-friendly setup message.
+ * Load the config from disk + env + OS vault. Throws `ConfigError` if
+ * required fields are missing — callers can catch and present a
+ * user-friendly setup message.
+ *
+ * `vault` is injectable for tests; production callers omit it. The
+ * vault is only consulted when the env var doesn't already supply the
+ * secret, so headless setups never pay the subprocess cost.
  */
-export function loadConfig(): AppConfig {
+export async function loadConfig(vault?: SecretVault): Promise<AppConfig> {
   const paths = getAppPaths();
   const file = readConfigFile(paths.configFile);
 
   const rawAuthMode = process.env["BITBUCKET_MCP_AUTH_MODE"] ?? file.authMode;
   const clientId = process.env["BITBUCKET_MCP_CLIENT_ID"] ?? file.clientId;
-  const clientSecret = process.env["BITBUCKET_MCP_CLIENT_SECRET"] ?? file.clientSecret;
   const defaultWorkspace = process.env["BITBUCKET_MCP_WORKSPACE"] ?? file.defaultWorkspace;
 
   const authMode = parseAuthMode(rawAuthMode);
@@ -89,13 +111,8 @@ export function loadConfig(): AppConfig {
         `then set BITBUCKET_MCP_CLIENT_ID or put {"clientId": "..."} in ${paths.configFile}.`,
     );
   }
-  if (typeof clientSecret !== "string" || clientSecret.length === 0) {
-    throw new ConfigError(
-      `Missing OAuth client_secret. Bitbucket requires the secret at the token endpoint ` +
-        `even with PKCE. Copy the Secret from your OAuth consumer and set ` +
-        `BITBUCKET_MCP_CLIENT_SECRET or add {"clientSecret": "..."} to ${paths.configFile}.`,
-    );
-  }
+
+  const clientSecret = await resolveClientSecret(file, paths.configFile, vault);
 
   return {
     authMode,
@@ -106,6 +123,43 @@ export function loadConfig(): AppConfig {
         ? defaultWorkspace
         : undefined,
   };
+}
+
+async function resolveClientSecret(
+  file: RawConfig,
+  configFilePath: string,
+  vault: SecretVault | undefined,
+): Promise<string> {
+  const fromEnv = process.env["BITBUCKET_MCP_CLIENT_SECRET"];
+  if (typeof fromEnv === "string" && fromEnv.length > 0) return fromEnv;
+
+  try {
+    const activeVault = vault ?? createDefaultVault();
+    const stored = await activeVault.get(CLIENT_SECRET_VAULT_KEY);
+    if (stored !== null && stored.length > 0) return stored;
+  } catch (err) {
+    // A broken vault (e.g. no Secret Service on a headless box) must not
+    // strand users who have the secret elsewhere — warn and keep resolving.
+    log.warn("config: could not read client secret from the OS vault", {
+      error: (err as Error).message,
+    });
+  }
+
+  if (typeof file.clientSecret === "string" && file.clientSecret.length > 0) {
+    log.warn(
+      "config: clientSecret is stored in PLAINTEXT in config.json (deprecated). " +
+        "Run `bitbucket-mcp set-secret` to move it into the OS secret store, " +
+        "then delete the clientSecret line from the file.",
+      { file: configFilePath },
+    );
+    return file.clientSecret;
+  }
+
+  throw new ConfigError(
+    `Missing OAuth client_secret. Bitbucket requires the secret at the token endpoint ` +
+      `even with PKCE. Copy the Secret from your OAuth consumer, then store it with ` +
+      `\`bitbucket-mcp set-secret\` (recommended) or set BITBUCKET_MCP_CLIENT_SECRET.`,
+  );
 }
 
 function parseAuthMode(raw: unknown): AuthMode {

@@ -4,25 +4,29 @@
  * The default invocation (no subcommand) starts the MCP stdio server.
  * The named subcommands are user-facing setup/diagnostic tools:
  *
- *   bitbucket-mcp login    — run OAuth 3LO and persist tokens (auth_code mode only)
- *   bitbucket-mcp logout   — wipe stored tokens (auth_code mode only)
- *   bitbucket-mcp whoami   — describe the current auth state
+ *   bitbucket-mcp login         — run OAuth 3LO and persist tokens (auth_code mode only)
+ *   bitbucket-mcp logout        — wipe stored tokens (auth_code mode only)
+ *   bitbucket-mcp whoami        — describe the current auth state
+ *   bitbucket-mcp set-secret    — store the OAuth consumer secret in the OS vault
+ *   bitbucket-mcp clear-secret  — remove the stored consumer secret
  *
  * These commands write human-readable output to stdout (safe: they never
  * speak MCP protocol). Errors go to stderr and exit non-zero so shell
  * scripts can gate on them.
  */
 
+import { createInterface } from "node:readline/promises";
+import { Writable } from "node:stream";
 import { ClientCredentialsAuth } from "../auth/client-credentials-auth.js";
-import { createDefaultTokenStore } from "../auth/index.js";
+import { createDefaultTokenStore, createDefaultVault } from "../auth/index.js";
 import { DEFAULT_CALLBACK_PORT, performLogin } from "../auth/login-flow.js";
 import { AuthSession } from "../auth/session.js";
-import { loadConfig } from "../config.js";
+import { CLIENT_SECRET_VAULT_KEY, configFileHasPlaintextSecret, loadConfig } from "../config.js";
 import type { AppConfig } from "../config.js";
 import { AuthError, ConfigError } from "../errors.js";
 
 export async function runLogin(): Promise<number> {
-  const config = loadConfig();
+  const config = await loadConfig();
   if (config.authMode !== "authorization_code") {
     process.stderr.write(
       `login is only used in authMode=authorization_code. ` +
@@ -59,7 +63,7 @@ export async function runLogin(): Promise<number> {
 }
 
 export async function runLogout(): Promise<number> {
-  const config = loadConfig();
+  const config = await loadConfig();
   if (config.authMode !== "authorization_code") {
     process.stdout.write(
       `Nothing to do — authMode=${config.authMode} doesn't persist tokens to disk.\n`,
@@ -74,7 +78,7 @@ export async function runLogout(): Promise<number> {
 }
 
 export async function runWhoami(): Promise<number> {
-  const config = loadConfig();
+  const config = await loadConfig();
   try {
     if (config.authMode === "client_credentials") {
       return await whoamiClientCredentials(config);
@@ -120,6 +124,57 @@ async function whoamiClientCredentials(config: AppConfig): Promise<number> {
   return 0;
 }
 
+export async function runSetSecret(): Promise<number> {
+  const vault = createDefaultVault();
+  const secret = await readSecretInput();
+  if (!secret) {
+    process.stderr.write("No secret provided; nothing stored.\n");
+    return 2;
+  }
+  await vault.set(CLIENT_SECRET_VAULT_KEY, secret);
+  process.stdout.write(`Client secret stored in the OS secret vault (${vault.backendName}).\n`);
+  if (configFileHasPlaintextSecret()) {
+    process.stdout.write(
+      "Note: config.json still contains a plaintext clientSecret. The vault copy now " +
+        "takes precedence — delete the clientSecret line from config.json.\n",
+    );
+  }
+  return 0;
+}
+
+export async function runClearSecret(): Promise<number> {
+  const vault = createDefaultVault();
+  await vault.delete(CLIENT_SECRET_VAULT_KEY);
+  process.stdout.write(
+    `Client secret removed from the OS secret vault (${vault.backendName}), if it was set.\n`,
+  );
+  return 0;
+}
+
+/**
+ * Read the secret without echoing it. On a TTY, readline is pointed at a
+ * muted output stream so keystrokes aren't reflected; when piped
+ * (`echo $SECRET | bitbucket-mcp set-secret`), read stdin to EOF.
+ */
+async function readSecretInput(): Promise<string> {
+  if (process.stdin.isTTY) {
+    process.stderr.write("Paste your OAuth consumer secret (input hidden): ");
+    const muted = new Writable({ write: (_chunk, _enc, cb) => cb() });
+    const rl = createInterface({ input: process.stdin, output: muted, terminal: true });
+    try {
+      const answer = await rl.question("");
+      process.stderr.write("\n");
+      return answer.trim();
+    } finally {
+      rl.close();
+    }
+  }
+  let data = "";
+  process.stdin.setEncoding("utf8");
+  for await (const chunk of process.stdin) data += chunk;
+  return data.trim();
+}
+
 export async function runHelp(): Promise<number> {
   process.stdout.write(
     [
@@ -131,12 +186,14 @@ export async function runHelp(): Promise<number> {
       "  bitbucket-mcp login               interactive OAuth login (authorization_code mode)",
       "  bitbucket-mcp logout              remove stored tokens (authorization_code mode)",
       "  bitbucket-mcp whoami              print the current auth state",
+      "  bitbucket-mcp set-secret          store the OAuth consumer secret in the OS vault",
+      "  bitbucket-mcp clear-secret        remove the stored consumer secret",
       "  bitbucket-mcp help                show this message",
       "",
       "Config:",
       "  BITBUCKET_MCP_AUTH_MODE       client_credentials (default) | authorization_code",
       "  BITBUCKET_MCP_CLIENT_ID       OAuth consumer key (required)",
-      "  BITBUCKET_MCP_CLIENT_SECRET   OAuth consumer secret (required)",
+      "  BITBUCKET_MCP_CLIENT_SECRET   OAuth consumer secret (overrides the OS-vault copy)",
       "  BITBUCKET_MCP_WORKSPACE       default workspace slug (optional)",
       "  BITBUCKET_MCP_CALLBACK_PORT   loopback port for OAuth callback (default: 33378)",
       "  BITBUCKET_MCP_LOG_LEVEL       debug|info|warn|error (default: info)",

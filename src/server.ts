@@ -37,8 +37,8 @@ export interface CreateServerOptions {
   readonly allowWrites?: boolean;
 }
 
-export function createServer(options: CreateServerOptions = {}): CreateServerResult {
-  const config = loadConfig();
+export async function createServer(options: CreateServerOptions = {}): Promise<CreateServerResult> {
+  const config = await loadConfig();
   const auth = createAuthProvider(config);
   const http = new BitbucketHttpClient(auth);
 
@@ -76,7 +76,7 @@ export function createAuthProvider(config: AppConfig): AuthProvider {
 }
 
 export async function startStdioServer(options: CreateServerOptions = {}): Promise<void> {
-  const { server, context } = createServer(options);
+  const { server, context } = await createServer(options);
   const transport = new StdioServerTransport();
   await server.connect(transport);
   log.info("bitbucket-mcp: stdio server ready", { writesAllowed: context.writesAllowed });

@@ -1,12 +1,12 @@
 {
-  "_comment_1": "Copy this file to the path shown in docs/setup.md and fill in your consumer's Key and Secret.",
+  "_comment_1": "Copy this file to the path shown in docs/setup.md and fill in your consumer's Key.",
   "_comment_2": "On Windows: %APPDATA%\\bitbucket-mcp\\config.json",
   "_comment_3": "On macOS:   ~/Library/Application Support/bitbucket-mcp/config.json",
   "_comment_4": "On Linux:   ~/.config/bitbucket-mcp/config.json (or $XDG_CONFIG_HOME/bitbucket-mcp/config.json)",
   "_comment_5": "authMode: 'client_credentials' (headless, bot-attributed) or 'authorization_code' (browser login, user-attributed).",
+  "_comment_6": "The consumer Secret does NOT go in this file — store it with `bitbucket-mcp set-secret` (or the BITBUCKET_MCP_CLIENT_SECRET env var).",
 
   "authMode": "client_credentials",
   "clientId": "REPLACE_WITH_YOUR_OAUTH_CONSUMER_KEY",
-  "clientSecret": "REPLACE_WITH_YOUR_OAUTH_CONSUMER_SECRET",
   "defaultWorkspace": "your-workspace-slug"
 }
