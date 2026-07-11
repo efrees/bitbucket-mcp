@@ -12,11 +12,12 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 export interface AppPaths {
-  /** Directory holding config.json and tokens.bin. Created on first write. */
+  /**
+   * Directory holding config.json and the vault's encrypted blobs
+   * (e.g. tokens.bin on file-backed vaults). Created on first write.
+   */
   readonly configDir: string;
   readonly configFile: string;
-  /** Encrypted token blob. Format depends on platform store implementation. */
-  readonly tokenFile: string;
 }
 
 function configRoot(): string {
@@ -38,6 +39,5 @@ export function getAppPaths(): AppPaths {
   return {
     configDir,
     configFile: join(configDir, "config.json"),
-    tokenFile: join(configDir, "tokens.bin"),
   };
 }

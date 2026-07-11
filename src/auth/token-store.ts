@@ -1,13 +1,10 @@
 /**
  * Token persistence interface.
  *
- * Encryption at rest is platform-specific. `TokenStore` is the common
- * shape; `createDefaultTokenStore()` picks the right implementation for
- * the host OS.
- *
- * On Windows this means DPAPI (see ./dpapi-token-store.ts). Other
- * platforms are not yet supported and will throw on construction —
- * see ROADMAP open question #3.
+ * Encryption at rest is platform-specific and lives behind SecretVault
+ * (see ./secret-vault.ts). `TokenStore` is the common shape;
+ * `createDefaultTokenStore()` wires VaultTokenStore to the platform's
+ * default vault.
  */
 
 export interface StoredToken {
