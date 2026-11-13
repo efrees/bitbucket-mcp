@@ -20,13 +20,14 @@ import { AuthError } from "../errors.js";
 import { log } from "../logger.js";
 import type { AuthProvider } from "../bitbucket/http-client.js";
 import { basicAuth } from "./login-flow.js";
-import { TOKEN_URL } from "./oauth-endpoints.js";
+import { parseScopes, TOKEN_URL } from "./oauth-endpoints.js";
 
 const REFRESH_SKEW_MS = 60_000;
 
 interface CachedToken {
   readonly accessToken: string;
   readonly expiresAt: number;
+  readonly scopes: readonly string[] | null;
 }
 
 interface TokenResponse {
@@ -67,6 +68,15 @@ export class ClientCredentialsAuth implements AuthProvider {
     return this.fetchLocked();
   }
 
+  /**
+   * This grant can't request scopes — the token simply carries whatever
+   * permissions the consumer has, and the token response lists them.
+   */
+  public async getGrantedScopes(): Promise<readonly string[] | null> {
+    await this.getAccessToken();
+    return this.cached?.scopes ?? null;
+  }
+
   /** Serialise concurrent fetches so the first caller wins the single token. */
   private async fetchLocked(): Promise<string> {
     if (this.inflight) return this.inflight;
@@ -97,6 +107,7 @@ export class ClientCredentialsAuth implements AuthProvider {
     const token: CachedToken = {
       accessToken: tr.access_token,
       expiresAt: Date.now() + tr.expires_in * 1000,
+      scopes: parseScopes(tr.scopes),
     };
     this.cached = token;
     return token.accessToken;

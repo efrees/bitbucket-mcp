@@ -17,7 +17,12 @@ import { createServer, IncomingMessage, Server, ServerResponse } from "node:http
 import { spawn } from "node:child_process";
 import { AuthError } from "../errors.js";
 import { log } from "../logger.js";
-import { buildAuthorizeUrl, DEFAULT_SCOPES, TOKEN_URL } from "./oauth-endpoints.js";
+import {
+  buildAuthorizeUrl,
+  DEFAULT_SCOPES,
+  OPTIONAL_SCOPES,
+  TOKEN_URL,
+} from "./oauth-endpoints.js";
 import { generatePkcePair, generateState } from "./pkce.js";
 import type { TokenResponse } from "./session.js";
 import type { StoredToken } from "./token-store.js";
@@ -52,7 +57,51 @@ export const DEFAULT_CALLBACK_PORT = 33378;
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 
+/**
+ * OAuth error codes Bitbucket returns when the authorize request asks
+ * for a scope the consumer doesn't have. `unsupported_response_type` is
+ * the misleading one it actually sends today; the other two are what
+ * the spec says it should send.
+ */
+const SCOPE_REJECTION_ERRORS = new Set([
+  "unsupported_response_type",
+  "invalid_scope",
+  "invalid_request",
+]);
+
+/**
+ * Log in, asking for the optional scopes too when the caller didn't pin
+ * a scope list. If Bitbucket rejects that request we retry once with
+ * only the required scopes, which costs the user a second browser tab
+ * but keeps login working for consumers without the optional
+ * permissions.
+ */
 export async function performLogin(opts: PerformLoginOptions): Promise<StoredToken> {
+  if (opts.scopes !== undefined || OPTIONAL_SCOPES.length === 0) {
+    return loginWithScopes(opts, opts.scopes ?? DEFAULT_SCOPES);
+  }
+  try {
+    return await loginWithScopes(opts, [...DEFAULT_SCOPES, ...OPTIONAL_SCOPES]);
+  } catch (err) {
+    if (!(err instanceof AuthError) || !SCOPE_REJECTION_ERRORS.has(err.oauthError ?? "")) {
+      throw err;
+    }
+    log.warn("auth: authorize rejected with optional scopes; retrying without them", {
+      oauthError: err.oauthError,
+      optionalScopes: OPTIONAL_SCOPES,
+    });
+    process.stderr.write(
+      `\nBitbucket rejected the login request (${err.oauthError}). Retrying without the optional ` +
+        `scope(s) ${OPTIONAL_SCOPES.join(", ")} — a second browser tab will open.\n`,
+    );
+    return loginWithScopes(opts, DEFAULT_SCOPES);
+  }
+}
+
+async function loginWithScopes(
+  opts: PerformLoginOptions,
+  scopes: readonly string[],
+): Promise<StoredToken> {
   const pkce = generatePkcePair();
   const state = generateState();
   const port = opts.callbackPort ?? DEFAULT_CALLBACK_PORT;
@@ -64,7 +113,7 @@ export async function performLogin(opts: PerformLoginOptions): Promise<StoredTok
     redirectUri,
     state,
     pkce,
-    ...(opts.scopes !== undefined ? { scopes: opts.scopes } : {}),
+    scopes,
   });
 
   const codePromise = waitForCallback(server, state, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
@@ -102,7 +151,7 @@ export async function performLogin(opts: PerformLoginOptions): Promise<StoredTok
     accessToken: tokenResponse.access_token,
     refreshToken: tokenResponse.refresh_token,
     expiresAt: Date.now() + tokenResponse.expires_in * 1000,
-    scopes: tokenResponse.scopes ?? (opts.scopes ?? DEFAULT_SCOPES).join(" "),
+    scopes: tokenResponse.scopes ?? scopes.join(" "),
     user,
   };
 }
@@ -179,6 +228,7 @@ async function waitForCallback(server: Server, expectedState: string, timeoutMs:
           new AuthError(
             `Authorization denied: ${error}${description ? ` — ${description}` : ""}. ` +
               troubleshootingHint(error),
+            error,
           ),
         );
         return;

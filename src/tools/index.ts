@@ -21,6 +21,7 @@ import * as listPullRequestStatuses from "./list-pull-request-statuses.js";
 import * as listPullRequests from "./list-pull-requests.js";
 import * as login from "./login.js";
 import * as replyToPrComment from "./reply-to-pr-comment.js";
+import { ScopeGate } from "./scope-gate.js";
 
 export interface ToolContext {
   readonly config: AppConfig;
@@ -36,12 +37,19 @@ export interface ToolContext {
   readonly writesAllowed: boolean;
 }
 
-export function registerTools(server: McpServer, ctx: ToolContext): void {
+/**
+ * Registers every tool and returns the gate over the scope-dependent
+ * ones. The caller should `sync()` it once at startup; the login tool
+ * re-syncs it whenever a new token is stored.
+ */
+export function registerTools(server: McpServer, ctx: ToolContext): ScopeGate {
+  const scopeGate = new ScopeGate();
+
   // Auth tools. Login is only meaningful in authorization_code mode;
   // registering it conditionally keeps it out of the client's tool list
   // (rather than present-but-erroring) in client_credentials mode.
   if (ctx.config.authMode === "authorization_code") {
-    login.register(server, ctx);
+    login.register(server, ctx, scopeGate);
   }
 
   // Read-side tools (always on).
@@ -51,11 +59,20 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
   getPullRequestDiffstat.register(server, ctx);
   listPullRequestComments.register(server, ctx);
   listPullRequestStatuses.register(server, ctx);
-  getPipelineFailures.register(server, ctx);
+
+  // Read-side tools that need an optional scope. These are hidden from
+  // the client when the token doesn't carry it.
+  scopeGate.add(
+    getPipelineFailures.TOOL_NAME,
+    getPipelineFailures.REQUIRED_SCOPE,
+    getPipelineFailures.register(server, ctx),
+  );
 
   // Write-side tools — handlers call requireWritesAllowed(ctx) at the top,
   // so they are safe to register even when writes are disabled.
   createPrComment.register(server, ctx);
   replyToPrComment.register(server, ctx);
   createPrInlineComment.register(server, ctx);
+
+  return scopeGate;
 }

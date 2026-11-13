@@ -28,9 +28,8 @@ Both modes use the same OAuth consumer and the same `clientId` +
    - **Permissions**: check Account → Read, Repositories → Read, and
      Pull requests → Read + Write. Optionally also check Pipelines →
      Read, which `bitbucket_get_pipeline_failures` needs to read build
-     logs and test reports. That tool currently works in
-     `client_credentials` mode only: `authorization_code` logins do not
-     request the `pipeline` scope.
+     logs and test reports. Without it everything else still works and
+     that tool is simply not offered to the agent.
 3. Save. Copy both the **Key** and the **Secret** shown on the consumer
    row.
 
@@ -109,6 +108,12 @@ store: **DPAPI** on Windows (scoped to your Windows user account), the
 login **Keychain** on macOS, or the **Secret Service** (GNOME Keyring /
 KWallet, via `secret-tool`) on Linux.
 
+Login asks for the optional Pipelines permission along with the
+required ones. If your consumer doesn't have Pipelines → Read,
+Bitbucket rejects that first request and login retries without it, so
+you'll see a second browser tab open. To pick up a permission you add
+to the consumer later, log in again.
+
 > **Linux note:** the Secret Service backend needs `secret-tool`
 > (Debian/Ubuntu: `apt install libsecret-tools`) and a running keyring
 > daemon. Headless machines without one should use `client_credentials`
@@ -166,8 +171,14 @@ require `--allow-writes` at startup.
 
 - **`unsupported_response_type`** (authorization_code mode only) — the
   OAuth consumer is misconfigured. Re-check step 1: callback URL is
-  exactly `http://127.0.0.1:33378/callback`, all three permission rows
-  are checked. Save the consumer again.
+  exactly `http://127.0.0.1:33378/callback`, all three required
+  permission rows are checked. Save the consumer again.
+
+- **`bitbucket_get_pipeline_failures` is missing from the tool list** —
+  the token doesn't carry the `pipeline` scope. Check Pipelines → Read
+  on the consumer (step 1), then restart the server
+  (`client_credentials` mode) or log in again (`authorization_code`
+  mode).
 
 - **`listen EADDRINUSE` or `listen EACCES` on 127.0.0.1:33378**
   (authorization_code mode only) — another process holds the port, or

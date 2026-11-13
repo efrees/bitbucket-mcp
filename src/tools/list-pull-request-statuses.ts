@@ -89,7 +89,7 @@ export function register(server: McpServer, ctx: ToolContext): void {
       description:
         "Build/CI statuses reported on a PR (state, name, link to the build), plus per-state counts and " +
         "a rolled-up overall_state: FAILED > STOPPED > INPROGRESS > SUCCESSFUL, or NONE when no builds have reported. " +
-        "For a failed status with a pipeline_build_number, call bitbucket_get_pipeline_failures for the failing tests and log.",
+        "For a failed status with a pipeline_build_number, call bitbucket_get_pipeline_failures (when that tool is available) for the failing tests and log.",
       inputSchema,
     },
     async (args) => {

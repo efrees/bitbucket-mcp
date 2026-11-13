@@ -8,6 +8,9 @@
  *   - the sanitized tail of the step log, which is where compiler errors
  *     and non-test failures show up.
  *
+ * Needs the optional `pipeline` scope; the tool is disabled when the
+ * token doesn't carry it (see scope-gate.ts).
+ *
  * Only Bitbucket Pipelines is reachable this way. Statuses posted by
  * third-party CI (Jenkins, CircleCI, ...) carry a `url` into that system,
  * which a Bitbucket token cannot read.
@@ -17,7 +20,7 @@
  * downloading the whole file.
  */
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { collectAll } from "../bitbucket/pagination.js";
 import type { Pipeline, PipelineStep } from "../bitbucket/types.js";
@@ -25,6 +28,10 @@ import { BitbucketApiError } from "../errors.js";
 import { encodePathSegment, errorResult, jsonResult, resolveWorkspace } from "./helpers.js";
 import type { ToolContext } from "./index.js";
 import { dropPartialFirstLine, sanitizeLog, tailText } from "./log-text.js";
+
+export const TOOL_NAME = "bitbucket_get_pipeline_failures";
+/** Pipelines: Read on the consumer. Without it the tool is disabled (see scope-gate.ts). */
+export const REQUIRED_SCOPE = "pipeline";
 
 const DEFAULT_LOG_BYTES = 30 * 1024;
 const HARD_MAX_LOG_BYTES = 500 * 1024;
@@ -200,15 +207,15 @@ async function fetchFailedTests(
   return { failed_test_count: failed.length, failed_tests: detailed };
 }
 
-export function register(server: McpServer, ctx: ToolContext): void {
-  server.registerTool(
-    "bitbucket_get_pipeline_failures",
+export function register(server: McpServer, ctx: ToolContext): RegisteredTool {
+  return server.registerTool(
+    TOOL_NAME,
     {
       title: "Get pipeline failures",
       description:
         "Explain why a Bitbucket Pipelines build failed: for each failed step, the failing test cases " +
         "(when the step published test reports) and the sanitized tail of the step log. " +
-        "Requires the `pipeline` scope on the OAuth consumer. Bitbucket Pipelines only — " +
+        "Bitbucket Pipelines only — " +
         "builds from third-party CI cannot be read.",
       inputSchema,
     },

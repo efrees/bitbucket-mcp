@@ -110,6 +110,15 @@ grant_type=refresh_token
 | `repository` | Read repo metadata, diffs, diffstats |
 | `pullrequest` | Read PRs and PR comments |
 | `pullrequest:write` | Reply to comments, create inline comments |
+| `pipeline` *(optional)* | Read Pipelines steps, logs, and test reports (§7) |
+
+`pipeline` is optional. Bitbucket rejects an authorize request that names
+a scope the consumer lacks, so `authorization_code` login asks for it on a
+first attempt and, if that is rejected, retries with only the required
+scopes. `client_credentials` tokens can't request scopes at all; they carry
+whatever the consumer has. Either way the token response's `scopes` field
+says what was granted, and tools that need a missing optional scope are
+disabled.
 
 Scopes implicitly include weaker variants (e.g. `repository:write` would imply
 `repository`), but we never request write on `repository` itself — only on
@@ -348,9 +357,10 @@ Our HTTP client maps these to `BitbucketApiError` with `status`, `code`, and
 
 ## 7. Pipelines endpoints
 
-All of these need the `pipeline` scope (Pipelines: Read on the consumer),
-which is separate from the scopes in §1. Used by
-`bitbucket_get_pipeline_failures`.
+All of these need the `pipeline` scope (Pipelines: Read on the consumer).
+We treat it as optional: `bitbucket_get_pipeline_failures`, the only
+consumer of these endpoints, is disabled when the token's `scopes` don't
+include it. See the scopes table in §1.
 
 ### Get a pipeline
 

@@ -130,7 +130,13 @@ strong new evidence:
   consumer lacks causes the whole authorize call to fail with a
   misleading error (`unsupported_response_type — Invalid value specified
   None`). The safe path is to keep the request's `scope` aligned with
-  the permissions selected when registering the consumer.
+  the permissions selected when registering the consumer. Scopes we
+  can live without (`OPTIONAL_SCOPES`, currently `pipeline`) are
+  requested on a first attempt only; on a scope-shaped rejection
+  `performLogin` retries with the required set. Never move an optional
+  scope into `DEFAULT_SCOPES` — that breaks login for every consumer
+  that hasn't ticked the box. Tools that need an optional scope go
+  through `ScopeGate` so they disappear when the token lacks it.
 
 - **Bitbucket requires the client_secret at the token endpoint even
   with PKCE.** Sending `client_id` in the POST body (no Authorization

@@ -23,7 +23,7 @@ Available MCP tools:
 | `bitbucket_get_pull_request_diffstat` | Per-file change summary |
 | `bitbucket_list_pull_request_comments` | Flat comment list with inline anchors and `parent_id` |
 | `bitbucket_list_pull_request_statuses` | Build/CI statuses with a rolled-up overall state |
-| `bitbucket_get_pipeline_failures` | Failing tests and sanitized log tail for a failed Bitbucket Pipelines build *(needs Pipelines: Read; `client_credentials` mode only)* |
+| `bitbucket_get_pipeline_failures` | Failing tests and sanitized log tail for a failed Bitbucket Pipelines build *(only offered when the consumer has Pipelines: Read)* |
 | `bitbucket_create_pr_comment` | Post a top-level PR comment *(write — requires `--allow-writes`)* |
 | `bitbucket_reply_to_pr_comment` | Reply to an existing comment *(write — requires `--allow-writes`)* |
 | `bitbucket_create_pr_inline_comment` | Line-anchored review comment *(write — requires `--allow-writes`)* |
@@ -53,7 +53,8 @@ under your own name; swap `authMode` to `client_credentials` and skip the
 
 1. Register a private OAuth consumer in Bitbucket with callback URL
    `http://127.0.0.1:33378/callback` and permissions Account: Read,
-   Repositories: Read, Pull requests: Read + Write. Copy its Key and Secret.
+   Repositories: Read, Pull requests: Read + Write (plus, optionally,
+   Pipelines: Read for build-failure details). Copy its Key and Secret.
 
 2. Build from source (git-only distribution for now):
 

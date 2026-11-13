@@ -25,6 +25,11 @@ export interface AuthProvider {
    * token or throw.
    */
   refreshAccessToken(): Promise<string>;
+  /**
+   * OAuth scopes on the current token, or null when Bitbucket didn't say.
+   * May fetch a token to find out, so it can throw like getAccessToken.
+   */
+  getGrantedScopes(): Promise<readonly string[] | null>;
 }
 
 export interface RequestOptions {

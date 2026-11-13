@@ -14,6 +14,30 @@ export const TOKEN_URL = "https://bitbucket.org/site/oauth2/access_token";
 /** Scopes we request on every login. See docs/bitbucket-api.md §1 for rationale. */
 export const DEFAULT_SCOPES = ["account", "repository", "pullrequest", "pullrequest:write"];
 
+/**
+ * Scopes we ask for but can live without. Bitbucket rejects the whole
+ * authorize call if the consumer lacks any requested scope, so login
+ * tries with these first and retries without them on rejection. Tools
+ * that depend on one are disabled when the token doesn't carry it.
+ */
+export const OPTIONAL_SCOPES = ["pipeline"];
+
+/**
+ * Whether `granted` covers `scope`. Bitbucket's stronger variants imply
+ * the base scope (`pipeline:write` includes `pipeline`). `null` means
+ * the grant is unknown, which we treat as "let the API decide".
+ */
+export function hasScope(granted: readonly string[] | null, scope: string): boolean {
+  if (granted === null) return true;
+  return granted.some((g) => g === scope || g.startsWith(`${scope}:`));
+}
+
+/** Split Bitbucket's `scopes` string (space- or comma-separated). */
+export function parseScopes(scopes: string | undefined | null): readonly string[] | null {
+  if (scopes === undefined || scopes === null) return null;
+  return scopes.split(/[\s,]+/).filter((s) => s.length > 0);
+}
+
 export interface BuildAuthorizeUrlArgs {
   readonly clientId: string;
   readonly redirectUri: string;

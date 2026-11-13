@@ -20,7 +20,7 @@ import { AuthError } from "../errors.js";
 import { log } from "../logger.js";
 import type { AuthProvider } from "../bitbucket/http-client.js";
 import { basicAuth } from "./login-flow.js";
-import { TOKEN_URL } from "./oauth-endpoints.js";
+import { parseScopes, TOKEN_URL } from "./oauth-endpoints.js";
 import type { StoredToken, TokenStore } from "./token-store.js";
 
 /** Refresh if the cached access token is within this many ms of expiry. */
@@ -67,6 +67,11 @@ export class AuthSession implements AuthProvider {
     const token = await this.loadCurrent();
     const refreshed = await this.refreshLocked(token.refreshToken);
     return refreshed.accessToken;
+  }
+
+  public async getGrantedScopes(): Promise<readonly string[] | null> {
+    const token = await this.loadCurrent();
+    return parseScopes(token.scopes);
   }
 
   public async whoami(): Promise<StoredToken["user"]> {
