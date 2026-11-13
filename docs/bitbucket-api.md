@@ -192,6 +192,35 @@ GET /repositories/{workspace}/{repo_slug}/pullrequests/{pull_request_id}/diffsta
 JSON paged list of files changed with `lines_added`, `lines_removed`, and
 `status` (`added` / `modified` / `removed` / `renamed`).
 
+### List build statuses
+
+```
+GET /repositories/{workspace}/{repo_slug}/pullrequests/{pull_request_id}/statuses
+  ?pagelen=50
+```
+
+JSON paged list of the commit statuses (builds) reported against the PR —
+Bitbucket Pipelines runs and anything third-party CI has posted. Covered by
+the `pullrequest` scope. Each entry:
+
+```json
+{
+  "type": "build",
+  "key": "my-pipeline-42",            // reporter-chosen id, unique per commit
+  "name": "Pipeline #42",
+  "description": "...",
+  "state": "SUCCESSFUL",              // SUCCESSFUL | FAILED | INPROGRESS | STOPPED
+  "url": "https://...",               // link to the build in the CI system
+  "refname": "feat/x",
+  "created_on": "...",
+  "updated_on": "..."
+}
+```
+
+There is no server-side aggregate; `bitbucket_list_pull_request_statuses`
+derives `overall_state` client-side, worst state first (`FAILED` > `STOPPED`
+> `INPROGRESS` > `SUCCESSFUL`, `NONE` when the list is empty).
+
 ---
 
 ## 4. Comment endpoints

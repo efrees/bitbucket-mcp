@@ -74,6 +74,23 @@ export interface PullRequestComment {
   readonly links?: BitbucketLinks;
 }
 
+export type CommitStatusState = "SUCCESSFUL" | "FAILED" | "INPROGRESS" | "STOPPED";
+
+/** A build / CI result attached to a commit (see docs/bitbucket-api.md §3). */
+export interface CommitStatus {
+  readonly type?: "build";
+  /** Reporter-chosen identifier, unique per commit (e.g. a pipeline or job id). */
+  readonly key: string;
+  readonly name?: string;
+  readonly description?: string;
+  readonly state: CommitStatusState;
+  /** Link to the build in the reporting CI system. */
+  readonly url?: string;
+  readonly refname?: string | null;
+  readonly created_on?: string;
+  readonly updated_on?: string;
+}
+
 export interface DiffStatEntry {
   readonly type: "diffstat";
   readonly status: "added" | "modified" | "removed" | "renamed";

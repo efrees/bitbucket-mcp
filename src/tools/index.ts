@@ -16,6 +16,7 @@ import * as getPullRequest from "./get-pull-request.js";
 import * as getPullRequestDiff from "./get-pull-request-diff.js";
 import * as getPullRequestDiffstat from "./get-pull-request-diffstat.js";
 import * as listPullRequestComments from "./list-pull-request-comments.js";
+import * as listPullRequestStatuses from "./list-pull-request-statuses.js";
 import * as listPullRequests from "./list-pull-requests.js";
 import * as login from "./login.js";
 import * as replyToPrComment from "./reply-to-pr-comment.js";
@@ -48,6 +49,7 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
   getPullRequestDiff.register(server, ctx);
   getPullRequestDiffstat.register(server, ctx);
   listPullRequestComments.register(server, ctx);
+  listPullRequestStatuses.register(server, ctx);
 
   // Write-side tools — handlers call requireWritesAllowed(ctx) at the top,
   // so they are safe to register even when writes are disabled.
