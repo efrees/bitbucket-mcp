@@ -13,39 +13,49 @@ API base URL: `https://api.bitbucket.org/2.0`
 
 ---
 
-## 1. Authentication — OAuth 2.0 (3LO) with PKCE
+## 1. Authentication — OAuth 2.0
 
-We use the authorization-code flow with PKCE so that a public client (a CLI
-running on the user's machine) can authenticate without shipping a client
-secret.
+Two grant types against the same user-owned **private** OAuth consumer,
+selected by `authMode`:
+
+| `authMode` | Grant | Actions attributed to | Token lifetime |
+|---|---|---|---|
+| `client_credentials` *(default)* | Client credentials (RFC 6749 §4.4) | The consumer | In memory only; re-fetched on expiry |
+| `authorization_code` | Authorization code (3LO), browser consent | The consenting user | Refresh token persisted in the OS vault |
+
+Consumer registration is covered in [setup.md](setup.md).
 
 ### Endpoints
 
 | Step | URL |
 |---|---|
-| Authorize | `https://bitbucket.org/site/oauth2/authorize` |
-| Token exchange / refresh | `https://bitbucket.org/site/oauth2/access_token` |
+| Authorize (`authorization_code` only) | `https://bitbucket.org/site/oauth2/authorize` |
+| Token (all grants) | `https://bitbucket.org/site/oauth2/access_token` |
 
-### Per-user OAuth consumer setup
+Every call to the token endpoint authenticates the consumer with HTTP
+Basic auth:
 
-Each user creates an OAuth consumer in their own Bitbucket workspace:
+```
+Authorization: Basic base64(<consumer key>:<consumer secret>)
+```
 
-> Workspace settings → **OAuth consumers** → **Add consumer**
+Bitbucket Cloud requires this for all three grants below. Sending
+`client_id` in the body instead is rejected with `unauthorized_client —
+Client credentials missing`.
 
-Required fields:
-- **Name**: e.g. `bitbucket-mcp (local)`
-- **Callback URL**: `http://localhost:0/callback` is acceptable for setup; the
-  server will request the actual ephemeral port at login time. Bitbucket
-  validates only the host/path on registered callbacks, so you can register
-  `http://127.0.0.1/callback` and we'll bind to a free port at runtime.
-  *(See open question #2 below — confirm this matches current Bitbucket
-  behavior at implementation time.)*
-- **This is a private consumer**: leave **unchecked** (we want PKCE / public
-  client behavior).
-- **Permissions** (scopes): see scopes table below.
+### Client credentials grant
 
-The user copies the **Key** (this is the `client_id`) into our config file.
-There is no `client_secret` to paste because we use PKCE.
+```
+POST https://bitbucket.org/site/oauth2/access_token
+Authorization: Basic ...
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+```
+
+Requires the consumer to be private. The response has the shape shown
+under "Token exchange" below, minus `refresh_token`; when the access token
+nears expiry we simply request another.
 
 ### Authorization request
 
@@ -54,25 +64,36 @@ GET https://bitbucket.org/site/oauth2/authorize
   ?client_id=<consumer key>
   &response_type=code
   &state=<random opaque>
+  &scope=<space-separated scopes>
   &code_challenge=<base64url(sha256(verifier))>
   &code_challenge_method=S256
-  &redirect_uri=http://127.0.0.1:<ephemeral_port>/callback
+  &redirect_uri=http://127.0.0.1:33378/callback
 ```
 
+- `redirect_uri` must match the consumer's registered callback URL exactly,
+  **including the port**, so the loopback listener binds a fixed port
+  (default `33378`, overridable via `BITBUCKET_MCP_CALLBACK_PORT`).
+- `scope` must be a subset of the consumer's permissions. Naming a scope
+  the consumer lacks fails the whole request with a misleading
+  `unsupported_response_type`.
+- The PKCE parameters are accepted but not validated by Bitbucket Cloud.
+  We send them anyway; the consumer secret is what actually protects the
+  exchange.
+
 User consents in the browser; Bitbucket redirects to the loopback callback
-with `?code=...&state=...`.
+with `?code=...&state=...`, or with `?error=...` on failure.
 
 ### Token exchange
 
 ```
 POST https://bitbucket.org/site/oauth2/access_token
+Authorization: Basic ...
 Content-Type: application/x-www-form-urlencoded
 
 grant_type=authorization_code
 &code=<received code>
 &code_verifier=<original verifier>
-&client_id=<consumer key>
-&redirect_uri=http://127.0.0.1:<ephemeral_port>/callback
+&redirect_uri=http://127.0.0.1:33378/callback
 ```
 
 Response:
@@ -95,18 +116,18 @@ call**.
 
 ```
 POST https://bitbucket.org/site/oauth2/access_token
+Authorization: Basic ...
 Content-Type: application/x-www-form-urlencoded
 
 grant_type=refresh_token
 &refresh_token=<current>
-&client_id=<consumer key>
 ```
 
 ### Scopes we request
 
 | Scope | Why |
 |---|---|
-| `account` | Identify the authenticated user (`/user`) for `whoami` and audit logging |
+| `account` | Identify the authenticated user (`/user`) at login |
 | `repository` | Read repo metadata, diffs, diffstats |
 | `pullrequest` | Read PRs and PR comments |
 | `pullrequest:write` | Reply to comments, create inline comments |
@@ -322,8 +343,10 @@ GET /user
 ```
 
 Returns the authenticated user's `uuid`, `display_name`, `username`
-(deprecated but still present), and `account_id`. Used by `whoami` and to
-attach the acting identity to logs.
+(deprecated but still present), and `account_id`. Called once at the end of
+an `authorization_code` login; the result is stored with the token so
+`whoami` needs no network call. Not used in `client_credentials` mode,
+where there is no user.
 
 ---
 
@@ -419,16 +442,10 @@ after sanitizing.
 
 ---
 
-## Open questions — to verify against live API during Phase 1
+## Open questions
 
-1. Confirm Bitbucket Cloud OAuth still supports PKCE with `S256` for public
-   consumers (it did at last writing — re-check before locking the flow).
-2. Confirm the redirect URI matching rules for loopback consumers — specifically
-   whether the registered callback can be a fixed `http://127.0.0.1/callback`
-   while the runtime port varies. Atlassian's behavior here has shifted over
-   the years; if it requires an exact match including port, we'll register a
-   range or document a fixed port.
-3. Confirm current scope strings — Atlassian has been migrating scope naming
-   conventions (e.g. `repository:read` vs `repository`).
-4. Capture a live `429` response in Phase 4 to confirm the `Retry-After`
-   header is set rather than only documented.
+1. Capture a live `429` response to confirm the `Retry-After` header is set
+   rather than only documented.
+2. Exercise the Pipelines endpoints (§7) against a live failed build:
+   build-number lookup, the test-report payload shapes, and the suffix
+   `Range` request through the log redirect are all unverified.
