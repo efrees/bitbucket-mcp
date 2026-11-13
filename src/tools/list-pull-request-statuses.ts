@@ -69,6 +69,18 @@ export function summarizeStatuses(statuses: readonly Pick<CommitStatus, "state">
   return { overall_state: overall, counts };
 }
 
+/**
+ * Bitbucket Pipelines statuses link to the run's results page, whose URL
+ * ends in the build number (`.../pipelines/results/42`, or the older
+ * `.../addon/pipelines/home#!/results/42`). Returns null for statuses
+ * posted by any other CI system.
+ */
+export function pipelineBuildNumber(url: string | undefined): number | null {
+  if (!url) return null;
+  const match = /^https:\/\/bitbucket\.org\/.*\/pipelines\/(?:home#!\/)?results\/(\d+)/.exec(url);
+  return match ? Number(match[1]) : null;
+}
+
 export function register(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     "bitbucket_list_pull_request_statuses",
@@ -76,7 +88,8 @@ export function register(server: McpServer, ctx: ToolContext): void {
       title: "List pull request build statuses",
       description:
         "Build/CI statuses reported on a PR (state, name, link to the build), plus per-state counts and " +
-        "a rolled-up overall_state: FAILED > STOPPED > INPROGRESS > SUCCESSFUL, or NONE when no builds have reported.",
+        "a rolled-up overall_state: FAILED > STOPPED > INPROGRESS > SUCCESSFUL, or NONE when no builds have reported. " +
+        "For a failed status with a pipeline_build_number, call bitbucket_get_pipeline_failures for the failing tests and log.",
       inputSchema,
     },
     async (args) => {
@@ -97,6 +110,9 @@ export function register(server: McpServer, ctx: ToolContext): void {
           state: s.state,
           description: s.description ?? null,
           url: s.url ?? null,
+          // Non-null only for Bitbucket Pipelines runs; pass it to
+          // bitbucket_get_pipeline_failures to see why a build failed.
+          pipeline_build_number: pipelineBuildNumber(s.url),
           refname: s.refname ?? null,
           created_on: s.created_on ?? null,
           updated_on: s.updated_on ?? null,

@@ -26,7 +26,11 @@ Both modes use the same OAuth consumer and the same `clientId` +
    - **This is a private consumer**: **checked** — you're the only
      one with this consumer's credentials.
    - **Permissions**: check Account → Read, Repositories → Read, and
-     Pull requests → Read + Write
+     Pull requests → Read + Write. Optionally also check Pipelines →
+     Read, which `bitbucket_get_pipeline_failures` needs to read build
+     logs and test reports. That tool currently works in
+     `client_credentials` mode only: `authorization_code` logins do not
+     request the `pipeline` scope.
 3. Save. Copy both the **Key** and the **Secret** shown on the consumer
    row.
 

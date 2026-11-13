@@ -12,6 +12,7 @@ import type { AppConfig } from "../config.js";
 import type { AuthProvider, BitbucketHttpClient } from "../bitbucket/http-client.js";
 import * as createPrComment from "./create-pr-comment.js";
 import * as createPrInlineComment from "./create-pr-inline-comment.js";
+import * as getPipelineFailures from "./get-pipeline-failures.js";
 import * as getPullRequest from "./get-pull-request.js";
 import * as getPullRequestDiff from "./get-pull-request-diff.js";
 import * as getPullRequestDiffstat from "./get-pull-request-diffstat.js";
@@ -50,6 +51,7 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
   getPullRequestDiffstat.register(server, ctx);
   listPullRequestComments.register(server, ctx);
   listPullRequestStatuses.register(server, ctx);
+  getPipelineFailures.register(server, ctx);
 
   // Write-side tools — handlers call requireWritesAllowed(ctx) at the top,
   // so they are safe to register even when writes are disabled.

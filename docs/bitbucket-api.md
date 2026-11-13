@@ -221,6 +221,13 @@ There is no server-side aggregate; `bitbucket_list_pull_request_statuses`
 derives `overall_state` client-side, worst state first (`FAILED` > `STOPPED`
 > `INPROGRESS` > `SUCCESSFUL`, `NONE` when the list is empty).
 
+For Bitbucket Pipelines runs, `url` ends in the build number
+(`.../pipelines/results/42`, or the older
+`.../addon/pipelines/home#!/results/42`). We parse it out as
+`pipeline_build_number`, the link into the Pipelines endpoints in §7.
+Statuses from third-party CI point at that system and cannot be followed
+with a Bitbucket token.
+
 ---
 
 ## 4. Comment endpoints
@@ -336,6 +343,69 @@ Our HTTP client maps these to `BitbucketApiError` with `status`, `code`, and
   as authoritative).
 - On `429` we honor `Retry-After` (seconds), with capped exponential backoff
   on transient `5xx`.
+
+---
+
+## 7. Pipelines endpoints
+
+All of these need the `pipeline` scope (Pipelines: Read on the consumer),
+which is separate from the scopes in §1. Used by
+`bitbucket_get_pipeline_failures`.
+
+### Get a pipeline
+
+```
+GET /repositories/{workspace}/{repo_slug}/pipelines/{pipeline_uuid}
+```
+
+Key fields: `uuid`, `build_number`, `state`. The path segment is
+documented as a UUID; Atlassian staff have said a build number is also
+accepted there, and we rely on that. A UUID's braces must be
+percent-encoded (`%7B...%7D`).
+
+`state.name` is `PENDING` / `IN_PROGRESS` / `COMPLETED`. Once completed,
+`state.result.name` is `SUCCESSFUL` / `FAILED` / `ERROR` / `STOPPED` /
+`EXPIRED`, and an `ERROR` result carries `state.result.error.message`
+(e.g. invalid `bitbucket-pipelines.yml`, where no step ever runs).
+
+### List steps
+
+```
+GET /repositories/{workspace}/{repo_slug}/pipelines/{pipeline_uuid}/steps
+  ?pagelen=100
+```
+
+Paged. Each step has `uuid`, `name`, and a `state` shaped like the
+pipeline's, with `NOT_RUN` as an extra result. We treat `FAILED` and
+`ERROR` as failed.
+
+### Get a step log
+
+```
+GET /repositories/{workspace}/{repo_slug}/pipelines/{pipeline_uuid}/steps/{step_uuid}/log
+Accept: application/octet-stream
+Range: bytes=-30720
+```
+
+Raw text, unbounded, often megabytes. We request only the tail with a
+suffix `Range` and expect `206` with `Content-Range`. Once a step
+completes the log moves to long-term storage and this endpoint answers
+`307` to it; `fetch` follows the redirect and drops the `Authorization`
+header on the cross-origin hop. `404` means the step has no log, and on
+`416` we refetch without `Range` and tail locally.
+
+### Test reports
+
+```
+GET .../pipelines/{pipeline_uuid}/steps/{step_uuid}/test_reports/test_cases
+GET .../pipelines/{pipeline_uuid}/steps/{step_uuid}/test_reports/test_cases/{test_case_uuid}/test_case_reasons
+```
+
+Present only when the step produced JUnit-style XML that Pipelines picked
+up; otherwise `404`. Bitbucket publishes no response schema for either
+endpoint, so we read them loosely: a test case counts as failed when its
+`status` is `FAILED` or `ERROR`, and the reasons payload is passed through
+after sanitizing.
 
 ---
 
