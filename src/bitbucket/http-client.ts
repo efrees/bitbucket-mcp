@@ -25,6 +25,11 @@ export interface AuthProvider {
    * token or throw.
    */
   refreshAccessToken(): Promise<string>;
+  /**
+   * OAuth scopes on the current token, or null when Bitbucket didn't say.
+   * May fetch a token to find out, so it can throw like getAccessToken.
+   */
+  getGrantedScopes(): Promise<readonly string[] | null>;
 }
 
 export interface RequestOptions {
@@ -32,6 +37,8 @@ export interface RequestOptions {
   readonly query?: Record<string, string | number | undefined | string[]>;
   readonly jsonBody?: unknown;
   readonly accept?: string;
+  /** Extra request headers (e.g. `Range`). Cannot override Authorization / Accept. */
+  readonly headers?: Record<string, string>;
   /** Full URL override (used for paginated `next` links). */
   readonly url?: string;
 }
@@ -122,6 +129,7 @@ export class BitbucketHttpClient {
 
   private async send(url: string, options: RequestOptions, token: string): Promise<Response> {
     const headers: Record<string, string> = {
+      ...options.headers,
       Authorization: `Bearer ${token}`,
       Accept: options.accept ?? "application/json",
     };

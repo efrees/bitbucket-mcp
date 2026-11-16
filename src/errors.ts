@@ -48,8 +48,12 @@ export class ConfigError extends Error {
 }
 
 export class AuthError extends Error {
-  constructor(message: string) {
+  /** OAuth `error` code from the authorize callback, when that is what failed. */
+  public readonly oauthError: string | undefined;
+
+  constructor(message: string, oauthError?: string) {
     super(message);
     this.name = "AuthError";
+    this.oauthError = oauthError;
   }
 }
