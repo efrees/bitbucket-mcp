@@ -74,6 +74,54 @@ export interface PullRequestComment {
   readonly links?: BitbucketLinks;
 }
 
+export type CommitStatusState = "SUCCESSFUL" | "FAILED" | "INPROGRESS" | "STOPPED";
+
+/** A build / CI result attached to a commit (see docs/bitbucket-api.md §3). */
+export interface CommitStatus {
+  readonly type?: "build";
+  /** Reporter-chosen identifier, unique per commit (e.g. a pipeline or job id). */
+  readonly key: string;
+  readonly name?: string;
+  readonly description?: string;
+  readonly state: CommitStatusState;
+  /** Link to the build in the reporting CI system. */
+  readonly url?: string;
+  readonly refname?: string | null;
+  readonly created_on?: string;
+  readonly updated_on?: string;
+}
+
+/**
+ * Progress state shared by pipelines and steps. `result` is only present
+ * once `name` is COMPLETED; `result.error` only when the result is ERROR.
+ * Names are typed as `string` because Bitbucket models them as an open
+ * set of subtypes (see docs/bitbucket-api.md §7).
+ */
+export interface PipelineState {
+  readonly name?: string;
+  readonly result?: {
+    readonly name?: string;
+    readonly error?: { readonly key?: string; readonly message?: string };
+  };
+}
+
+export interface Pipeline {
+  readonly uuid: string;
+  readonly build_number: number;
+  readonly state?: PipelineState;
+  readonly created_on?: string;
+  readonly completed_on?: string;
+}
+
+export interface PipelineStep {
+  readonly uuid: string;
+  /** Present in practice, though absent from Bitbucket's published schema. */
+  readonly name?: string;
+  readonly state?: PipelineState;
+  readonly started_on?: string;
+  readonly completed_on?: string;
+}
+
 export interface DiffStatEntry {
   readonly type: "diffstat";
   readonly status: "added" | "modified" | "removed" | "renamed";

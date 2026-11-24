@@ -20,8 +20,9 @@ import { performLogin } from "../auth/login-flow.js";
 import { AuthSession } from "../auth/session.js";
 import { errorResult, jsonResult } from "./helpers.js";
 import type { ToolContext } from "./index.js";
+import type { ScopeGate } from "./scope-gate.js";
 
-export function register(server: McpServer, ctx: ToolContext): void {
+export function register(server: McpServer, ctx: ToolContext, scopeGate: ScopeGate): void {
   server.registerTool(
     "bitbucket_login",
     {
@@ -46,6 +47,8 @@ export function register(server: McpServer, ctx: ToolContext): void {
           callbackPort: ctx.config.callbackPort,
         });
         await ctx.auth.setToken(token);
+        // The new token may carry different scopes than the old one.
+        await scopeGate.sync(ctx.auth);
         return jsonResult({
           logged_in_as: token.user.displayName,
           uuid: token.user.uuid,

@@ -13,39 +13,49 @@ API base URL: `https://api.bitbucket.org/2.0`
 
 ---
 
-## 1. Authentication — OAuth 2.0 (3LO) with PKCE
+## 1. Authentication — OAuth 2.0
 
-We use the authorization-code flow with PKCE so that a public client (a CLI
-running on the user's machine) can authenticate without shipping a client
-secret.
+Two grant types against the same user-owned **private** OAuth consumer,
+selected by `authMode`:
+
+| `authMode` | Grant | Actions attributed to | Token lifetime |
+|---|---|---|---|
+| `client_credentials` *(default)* | Client credentials (RFC 6749 §4.4) | The consumer | In memory only; re-fetched on expiry |
+| `authorization_code` | Authorization code (3LO), browser consent | The consenting user | Refresh token persisted in the OS vault |
+
+Consumer registration is covered in [setup.md](setup.md).
 
 ### Endpoints
 
 | Step | URL |
 |---|---|
-| Authorize | `https://bitbucket.org/site/oauth2/authorize` |
-| Token exchange / refresh | `https://bitbucket.org/site/oauth2/access_token` |
+| Authorize (`authorization_code` only) | `https://bitbucket.org/site/oauth2/authorize` |
+| Token (all grants) | `https://bitbucket.org/site/oauth2/access_token` |
 
-### Per-user OAuth consumer setup
+Every call to the token endpoint authenticates the consumer with HTTP
+Basic auth:
 
-Each user creates an OAuth consumer in their own Bitbucket workspace:
+```
+Authorization: Basic base64(<consumer key>:<consumer secret>)
+```
 
-> Workspace settings → **OAuth consumers** → **Add consumer**
+Bitbucket Cloud requires this for all three grants below. Sending
+`client_id` in the body instead is rejected with `unauthorized_client —
+Client credentials missing`.
 
-Required fields:
-- **Name**: e.g. `bitbucket-mcp (local)`
-- **Callback URL**: `http://localhost:0/callback` is acceptable for setup; the
-  server will request the actual ephemeral port at login time. Bitbucket
-  validates only the host/path on registered callbacks, so you can register
-  `http://127.0.0.1/callback` and we'll bind to a free port at runtime.
-  *(See open question #2 below — confirm this matches current Bitbucket
-  behavior at implementation time.)*
-- **This is a private consumer**: leave **unchecked** (we want PKCE / public
-  client behavior).
-- **Permissions** (scopes): see scopes table below.
+### Client credentials grant
 
-The user copies the **Key** (this is the `client_id`) into our config file.
-There is no `client_secret` to paste because we use PKCE.
+```
+POST https://bitbucket.org/site/oauth2/access_token
+Authorization: Basic ...
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+```
+
+Requires the consumer to be private. The response has the shape shown
+under "Token exchange" below, minus `refresh_token`; when the access token
+nears expiry we simply request another.
 
 ### Authorization request
 
@@ -54,25 +64,36 @@ GET https://bitbucket.org/site/oauth2/authorize
   ?client_id=<consumer key>
   &response_type=code
   &state=<random opaque>
+  &scope=<space-separated scopes>
   &code_challenge=<base64url(sha256(verifier))>
   &code_challenge_method=S256
-  &redirect_uri=http://127.0.0.1:<ephemeral_port>/callback
+  &redirect_uri=http://127.0.0.1:33378/callback
 ```
 
+- `redirect_uri` must match the consumer's registered callback URL exactly,
+  **including the port**, so the loopback listener binds a fixed port
+  (default `33378`, overridable via `BITBUCKET_MCP_CALLBACK_PORT`).
+- `scope` must be a subset of the consumer's permissions. Naming a scope
+  the consumer lacks fails the whole request with a misleading
+  `unsupported_response_type`.
+- The PKCE parameters are accepted but not validated by Bitbucket Cloud.
+  We send them anyway; the consumer secret is what actually protects the
+  exchange.
+
 User consents in the browser; Bitbucket redirects to the loopback callback
-with `?code=...&state=...`.
+with `?code=...&state=...`, or with `?error=...` on failure.
 
 ### Token exchange
 
 ```
 POST https://bitbucket.org/site/oauth2/access_token
+Authorization: Basic ...
 Content-Type: application/x-www-form-urlencoded
 
 grant_type=authorization_code
 &code=<received code>
 &code_verifier=<original verifier>
-&client_id=<consumer key>
-&redirect_uri=http://127.0.0.1:<ephemeral_port>/callback
+&redirect_uri=http://127.0.0.1:33378/callback
 ```
 
 Response:
@@ -95,21 +116,30 @@ call**.
 
 ```
 POST https://bitbucket.org/site/oauth2/access_token
+Authorization: Basic ...
 Content-Type: application/x-www-form-urlencoded
 
 grant_type=refresh_token
 &refresh_token=<current>
-&client_id=<consumer key>
 ```
 
 ### Scopes we request
 
 | Scope | Why |
 |---|---|
-| `account` | Identify the authenticated user (`/user`) for `whoami` and audit logging |
+| `account` | Identify the authenticated user (`/user`) at login |
 | `repository` | Read repo metadata, diffs, diffstats |
 | `pullrequest` | Read PRs and PR comments |
 | `pullrequest:write` | Reply to comments, create inline comments |
+| `pipeline` *(optional)* | Read Pipelines steps, logs, and test reports (§7) |
+
+`pipeline` is optional. Bitbucket rejects an authorize request that names
+a scope the consumer lacks, so `authorization_code` login asks for it on a
+first attempt and, if that is rejected, retries with only the required
+scopes. `client_credentials` tokens can't request scopes at all; they carry
+whatever the consumer has. Either way the token response's `scopes` field
+says what was granted, and tools that need a missing optional scope are
+disabled.
 
 Scopes implicitly include weaker variants (e.g. `repository:write` would imply
 `repository`), but we never request write on `repository` itself — only on
@@ -191,6 +221,42 @@ GET /repositories/{workspace}/{repo_slug}/pullrequests/{pull_request_id}/diffsta
 
 JSON paged list of files changed with `lines_added`, `lines_removed`, and
 `status` (`added` / `modified` / `removed` / `renamed`).
+
+### List build statuses
+
+```
+GET /repositories/{workspace}/{repo_slug}/pullrequests/{pull_request_id}/statuses
+  ?pagelen=50
+```
+
+JSON paged list of the commit statuses (builds) reported against the PR —
+Bitbucket Pipelines runs and anything third-party CI has posted. Covered by
+the `pullrequest` scope. Each entry:
+
+```json
+{
+  "type": "build",
+  "key": "my-pipeline-42",            // reporter-chosen id, unique per commit
+  "name": "Pipeline #42",
+  "description": "...",
+  "state": "SUCCESSFUL",              // SUCCESSFUL | FAILED | INPROGRESS | STOPPED
+  "url": "https://...",               // link to the build in the CI system
+  "refname": "feat/x",
+  "created_on": "...",
+  "updated_on": "..."
+}
+```
+
+There is no server-side aggregate; `bitbucket_list_pull_request_statuses`
+derives `overall_state` client-side, worst state first (`FAILED` > `STOPPED`
+> `INPROGRESS` > `SUCCESSFUL`, `NONE` when the list is empty).
+
+For Bitbucket Pipelines runs, `url` ends in the build number
+(`.../pipelines/results/42`, or the older
+`.../addon/pipelines/home#!/results/42`). We parse it out as
+`pipeline_build_number`, the link into the Pipelines endpoints in §7.
+Statuses from third-party CI point at that system and cannot be followed
+with a Bitbucket token.
 
 ---
 
@@ -277,8 +343,10 @@ GET /user
 ```
 
 Returns the authenticated user's `uuid`, `display_name`, `username`
-(deprecated but still present), and `account_id`. Used by `whoami` and to
-attach the acting identity to logs.
+(deprecated but still present), and `account_id`. Called once at the end of
+an `authorization_code` login; the result is stored with the token so
+`whoami` needs no network call. Not used in `client_credentials` mode,
+where there is no user.
 
 ---
 
@@ -310,16 +378,74 @@ Our HTTP client maps these to `BitbucketApiError` with `status`, `code`, and
 
 ---
 
-## Open questions — to verify against live API during Phase 1
+## 7. Pipelines endpoints
 
-1. Confirm Bitbucket Cloud OAuth still supports PKCE with `S256` for public
-   consumers (it did at last writing — re-check before locking the flow).
-2. Confirm the redirect URI matching rules for loopback consumers — specifically
-   whether the registered callback can be a fixed `http://127.0.0.1/callback`
-   while the runtime port varies. Atlassian's behavior here has shifted over
-   the years; if it requires an exact match including port, we'll register a
-   range or document a fixed port.
-3. Confirm current scope strings — Atlassian has been migrating scope naming
-   conventions (e.g. `repository:read` vs `repository`).
-4. Capture a live `429` response in Phase 4 to confirm the `Retry-After`
-   header is set rather than only documented.
+All of these need the `pipeline` scope (Pipelines: Read on the consumer).
+We treat it as optional: `bitbucket_get_pipeline_failures`, the only
+consumer of these endpoints, is disabled when the token's `scopes` don't
+include it. See the scopes table in §1.
+
+### Get a pipeline
+
+```
+GET /repositories/{workspace}/{repo_slug}/pipelines/{pipeline_uuid}
+```
+
+Key fields: `uuid`, `build_number`, `state`. The path segment is
+documented as a UUID; Atlassian staff have said a build number is also
+accepted there, and we rely on that. A UUID's braces must be
+percent-encoded (`%7B...%7D`).
+
+`state.name` is `PENDING` / `IN_PROGRESS` / `COMPLETED`. Once completed,
+`state.result.name` is `SUCCESSFUL` / `FAILED` / `ERROR` / `STOPPED` /
+`EXPIRED`, and an `ERROR` result carries `state.result.error.message`
+(e.g. invalid `bitbucket-pipelines.yml`, where no step ever runs).
+
+### List steps
+
+```
+GET /repositories/{workspace}/{repo_slug}/pipelines/{pipeline_uuid}/steps
+  ?pagelen=100
+```
+
+Paged. Each step has `uuid`, `name`, and a `state` shaped like the
+pipeline's, with `NOT_RUN` as an extra result. We treat `FAILED` and
+`ERROR` as failed.
+
+### Get a step log
+
+```
+GET /repositories/{workspace}/{repo_slug}/pipelines/{pipeline_uuid}/steps/{step_uuid}/log
+Accept: application/octet-stream
+Range: bytes=-30720
+```
+
+Raw text, unbounded, often megabytes. We request only the tail with a
+suffix `Range` and expect `206` with `Content-Range`. Once a step
+completes the log moves to long-term storage and this endpoint answers
+`307` to it; `fetch` follows the redirect and drops the `Authorization`
+header on the cross-origin hop. `404` means the step has no log, and on
+`416` we refetch without `Range` and tail locally.
+
+### Test reports
+
+```
+GET .../pipelines/{pipeline_uuid}/steps/{step_uuid}/test_reports/test_cases
+GET .../pipelines/{pipeline_uuid}/steps/{step_uuid}/test_reports/test_cases/{test_case_uuid}/test_case_reasons
+```
+
+Present only when the step produced JUnit-style XML that Pipelines picked
+up; otherwise `404`. Bitbucket publishes no response schema for either
+endpoint, so we read them loosely: a test case counts as failed when its
+`status` is `FAILED` or `ERROR`, and the reasons payload is passed through
+after sanitizing.
+
+---
+
+## Open questions
+
+1. Capture a live `429` response to confirm the `Retry-After` header is set
+   rather than only documented.
+2. Exercise the Pipelines endpoints (§7) against a live failed build:
+   build-number lookup, the test-report payload shapes, and the suffix
+   `Range` request through the log redirect are all unverified.

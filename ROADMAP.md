@@ -61,6 +61,9 @@ Goal: an agent can inspect a PR before deciding what to say.
 - [x] `bitbucket_get_pull_request_diff` — unified diff text, byte-budgeted truncation (250 KB default)
 - [x] `bitbucket_get_pull_request_diffstat` — per-file change summary with totals
 - [x] `bitbucket_list_pull_request_comments` — paginated, includes inline anchors and `parent_id` for threading
+- [x] `bitbucket_list_pull_request_statuses` — build/CI statuses with per-state counts and a rolled-up `overall_state`
+- [x] `bitbucket_get_pipeline_failures` — failing test cases and sanitized log tail for each failed step of a Bitbucket Pipelines build (needs the `pipeline` scope)
+- [x] Optional scopes: login requests `pipeline` and retries without it if Bitbucket rejects the request; tools whose scope the token lacks are disabled (hidden from the client's tool list) rather than left to fail with a 403
 - [x] Pagination helper that auto-walks `next` cursors with a configurable cap
 
 ## Phase 3 — Write-side MCP tools (reply & review)

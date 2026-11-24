@@ -11,6 +11,7 @@ function stubAuth(): AuthProvider {
   return {
     getAccessToken: async () => "fake-token",
     refreshAccessToken: async () => "fake-token-2",
+    getGrantedScopes: async () => null,
   };
 }
 
@@ -116,6 +117,7 @@ test("refreshes on 401 and retries once with new token", async () => {
   const auth: AuthProvider = {
     getAccessToken: async () => "old-token",
     refreshAccessToken: async () => "new-token",
+    getGrantedScopes: async () => null,
   };
   const client = new BitbucketHttpClient(auth, "https://example.invalid/2.0", {
     sleep: async () => undefined,

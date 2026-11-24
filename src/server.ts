@@ -52,7 +52,12 @@ export async function createServer(options: CreateServerOptions = {}): Promise<C
     { name: SERVER_NAME, version: SERVER_VERSION },
     { capabilities: { tools: {} } },
   );
-  registerTools(server, context);
+  const scopeGate = registerTools(server, context);
+  // Not awaited: in client_credentials mode this fetches a token, and a
+  // slow or unreachable token endpoint must not hold up the MCP
+  // handshake. A tool disabled after the client has listed tools is
+  // announced via tools/list_changed. sync() never rejects.
+  void scopeGate.sync(auth);
   return { server, context };
 }
 
