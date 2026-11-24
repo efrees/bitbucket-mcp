@@ -82,6 +82,109 @@ test("retries on 503 with exponential backoff when no Retry-After", async () => 
   assert.ok(sleeps[1]! >= 200 && sleeps[1]! < 400, `second sleep ${sleeps[1]} out of range`);
 });
 
+test("does not retry a POST that gets a 5xx", async () => {
+  // A 5xx on a write can arrive after Bitbucket already processed it, so
+  // resending risks a duplicate comment or PR.
+  const sleeps: number[] = [];
+  let calls = 0;
+  const client = new BitbucketHttpClient(stubAuth(), "https://example.invalid/2.0", {
+    sleep: async (ms) => {
+      sleeps.push(ms);
+    },
+    baseBackoffMs: 10,
+    maxRetries: 3,
+  });
+
+  await withScriptedFetch(
+    [
+      () => {
+        calls += 1;
+        return new Response("bad gateway", { status: 502 });
+      },
+    ],
+    async () => {
+      await assert.rejects(
+        () => client.requestJson("/whatever", { method: "POST", jsonBody: { content: { raw: "hi" } } }),
+        (err: unknown) => {
+          assert.ok(err instanceof BitbucketApiError);
+          assert.equal(err.status, 502);
+          return true;
+        },
+      );
+    },
+  );
+  assert.equal(calls, 1, "POST must be sent exactly once");
+  assert.deepEqual(sleeps, [], "no backoff when not retrying");
+});
+
+test("retries a POST that gets a 429", async () => {
+  const sleeps: number[] = [];
+  let calls = 0;
+  const client = new BitbucketHttpClient(stubAuth(), "https://example.invalid/2.0", {
+    sleep: async (ms) => {
+      sleeps.push(ms);
+    },
+    baseBackoffMs: 10,
+    maxRetries: 3,
+  });
+
+  await withScriptedFetch(
+    [
+      () => {
+        calls += 1;
+        return new Response("rate limited", { status: 429, headers: { "Retry-After": "1" } });
+      },
+      () => {
+        calls += 1;
+        return new Response('{"id":1}', {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        });
+      },
+    ],
+    async () => {
+      const result = await client.requestJson<{ id: number }>("/whatever", {
+        method: "POST",
+        jsonBody: { content: { raw: "hi" } },
+      });
+      assert.deepEqual(result, { id: 1 });
+    },
+  );
+  assert.equal(calls, 2);
+  assert.deepEqual(sleeps, [1000]);
+});
+
+test("still retries a GET that gets a 5xx", async () => {
+  const sleeps: number[] = [];
+  let calls = 0;
+  const client = new BitbucketHttpClient(stubAuth(), "https://example.invalid/2.0", {
+    sleep: async (ms) => {
+      sleeps.push(ms);
+    },
+    baseBackoffMs: 10,
+    maxRetries: 3,
+  });
+
+  await withScriptedFetch(
+    [
+      () => {
+        calls += 1;
+        return new Response("bad gateway", { status: 502 });
+      },
+      () => {
+        calls += 1;
+        return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
+      },
+    ],
+    async () => {
+      const result = await client.requestJson<Record<string, unknown>>("/whatever");
+      assert.deepEqual(result, {});
+    },
+  );
+  assert.equal(calls, 2);
+  assert.equal(sleeps.length, 1);
+});
+
 test("throws BitbucketApiError with parsed envelope on non-retriable 4xx", async () => {
   const client = new BitbucketHttpClient(stubAuth(), "https://example.invalid/2.0", {
     sleep: async () => undefined,

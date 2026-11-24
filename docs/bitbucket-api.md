@@ -403,8 +403,14 @@ Our HTTP client maps these to `BitbucketApiError` with `status`, `code`, and
 - Per-hour quota per OAuth user (Atlassian publishes current numbers in their
   rate-limit doc — verify at implementation time; treat the response headers
   as authoritative).
-- On `429` we honor `Retry-After` (seconds), with capped exponential backoff
-  on transient `5xx`.
+- On `429` we retry any method, honoring `Retry-After` (seconds or
+  HTTP-date). The request was rejected before processing, so resending is
+  safe.
+- On `5xx` we retry only idempotent methods (`GET`, `HEAD`, `PUT`,
+  `DELETE`), with capped exponential backoff. A `POST` that gets a `5xx` is
+  returned as an error at once: a gateway `502` can arrive after Bitbucket
+  already created the comment or PR, so a resend would duplicate it.
+- Up to 3 retries in either case.
 
 ---
 
