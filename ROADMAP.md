@@ -86,6 +86,36 @@ Goal: an agent can respond to feedback and leave its own line-anchored review.
 - [ ] Live smoke test gated on env credentials for end-to-end verification against a real workspace (deferred).
 - [ ] Scope-level write gate: verify the stored token actually has `pullrequest:write` before running a write tool, on top of the existing `--allow-writes` operator gate (deferred; nice-to-have).
 
+## Phase 5 — Open a PR
+
+Goal: an agent can open a pull request for work it just finished, not
+only comment on existing ones. See §3 of
+[docs/bitbucket-api.md](docs/bitbucket-api.md) for the endpoint shape.
+
+- [x] `bitbucket_create_pull_request` — source branch, destination branch,
+  title, optional description, optional `draft` flag.
+  - **Draft by default.** `draft` defaults to `true`; publishing takes an
+    explicit `draft: false`. Realistic failure mode is "agent opens a
+    half-baked PR that pings five humans"; the extra deliberation to
+    publish is cheap. Draft PRs need a workspace plan that supports
+    them — on plans that don't, Bitbucket returns an error and we
+    surface it unchanged rather than silently falling back.
+  - **Same-repo only.** Source is always a branch in the repo named in
+    the path. No `source.repository` field, so a compromised agent can't
+    open a fork → main PR to trigger privileged CI.
+  - **Minimal schema.** `close_source_branch`, reviewers, and other
+    payload knobs are not exposed yet — add fields when an agent
+    actually needs them. Reviewers in particular would need an
+    account-id resolution path (display name isn't accepted).
+  - **No merge, no approve.** The token already carries
+    `pullrequest:write`, which permits both; we deliberately don't
+    expose tools for them. Under `authorization_code` mode an approve
+    tool would let an agent self-approve under the user's identity,
+    silently satisfying a reviewer requirement.
+  - Operator gate is the existing `--allow-writes` flag; no new permission
+    surface. See `pullrequest:write` note in
+    [docs/bitbucket-api.md](docs/bitbucket-api.md) §1.
+
 ## Out of scope for now (revisit later)
 
 - Resolve / unresolve comment threads (deferred)

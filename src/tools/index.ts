@@ -12,6 +12,7 @@ import type { AppConfig } from "../config.js";
 import type { AuthProvider, BitbucketHttpClient } from "../bitbucket/http-client.js";
 import * as createPrComment from "./create-pr-comment.js";
 import * as createPrInlineComment from "./create-pr-inline-comment.js";
+import * as createPullRequest from "./create-pull-request.js";
 import * as getPipelineFailures from "./get-pipeline-failures.js";
 import * as getPullRequest from "./get-pull-request.js";
 import * as getPullRequestDiff from "./get-pull-request-diff.js";
@@ -73,6 +74,7 @@ export function registerTools(server: McpServer, ctx: ToolContext): ScopeGate {
   createPrComment.register(server, ctx);
   replyToPrComment.register(server, ctx);
   createPrInlineComment.register(server, ctx);
+  createPullRequest.register(server, ctx);
 
   return scopeGate;
 }

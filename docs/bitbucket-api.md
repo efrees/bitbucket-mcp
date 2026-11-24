@@ -130,7 +130,7 @@ grant_type=refresh_token
 | `account` | Identify the authenticated user (`/user`) at login |
 | `repository` | Read repo metadata, diffs, diffstats |
 | `pullrequest` | Read PRs and PR comments |
-| `pullrequest:write` | Reply to comments, create inline comments |
+| `pullrequest:write` | Open PRs, reply to comments, create inline comments. (The same scope also permits merge, decline, and approve on any PR in the workspace; we deliberately do not expose tools for those.) |
 | `pipeline` *(optional)* | Read Pipelines steps, logs, and test reports (§7) |
 
 `pipeline` is optional. Bitbucket rejects an authorize request that names
@@ -257,6 +257,36 @@ For Bitbucket Pipelines runs, `url` ends in the build number
 `pipeline_build_number`, the link into the Pipelines endpoints in §7.
 Statuses from third-party CI point at that system and cannot be followed
 with a Bitbucket token.
+
+### Create a PR
+
+```
+POST /repositories/{workspace}/{repo_slug}/pullrequests
+Content-Type: application/json
+
+{
+  "title":       "Fix flaky scheduler test",
+  "description": "Optional raw Markdown.",
+  "source":      { "branch": { "name": "fix/scheduler-flake" } },
+  "destination": { "branch": { "name": "main" } },
+  "draft":       true
+}
+```
+
+Returns the newly created PR object (same shape as "Get a single PR"
+above). Needs `pullrequest:write`.
+
+Notes we rely on:
+- The source branch is resolved in the repo named in the path; we never
+  send a `source.repository` field, so cross-repo (fork) PRs are
+  unrepresentable through this tool.
+- `draft` is honored on workspace plans that support draft PRs; on
+  plans that don't, Bitbucket returns an error envelope which we
+  surface unchanged rather than silently falling back to a published
+  PR.
+- `close_source_branch`, `reviewers`, and other optional payload fields
+  are deliberately not exposed yet — add them to the tool schema when
+  an agent actually needs them.
 
 ---
 
