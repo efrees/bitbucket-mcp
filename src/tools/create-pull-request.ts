@@ -17,9 +17,10 @@
  * - **Draft by default.** `draft` defaults to `true`; publishing takes
  *   an explicit `draft: false`. The extra deliberation to open a
  *   ready-for-review PR is cheap, and the realistic failure mode is
- *   "agent shipped a half-baked PR that pinged five humans." If the
- *   target workspace's plan doesn't support drafts, Bitbucket surfaces
- *   the error — we do not silently degrade.
+ *   "agent shipped a half-baked PR that pinged five humans." How
+ *   Bitbucket treats `draft` on plans without draft support is
+ *   unverified, so the result echoes the stored `draft` value rather
+ *   than the requested one.
  * - **No merge, no approve.** The token already carries
  *   `pullrequest:write`, which is enough to merge or approve. We
  *   deliberately don't expose tools for those — they're higher
@@ -69,7 +70,7 @@ export const inputSchema = {
     .boolean()
     .optional()
     .describe(
-      "Open as a draft. Defaults to true; pass false to open ready-for-review. Draft PRs require a Bitbucket workspace plan that supports them; the create call surfaces the Bitbucket error if the plan does not.",
+      "Open as a draft. Defaults to true; pass false to open ready-for-review. The result's `draft` field reports what Bitbucket actually stored; check it before telling anyone the PR is a draft.",
     ),
 };
 
@@ -107,6 +108,9 @@ export function register(server: McpServer, ctx: ToolContext): void {
           id: pr.id,
           title: pr.title,
           state: pr.state,
+          // Echo what Bitbucket actually stored, not what we requested, so
+          // the agent can confirm the PR really is a draft.
+          draft: pr.draft ?? false,
           source_branch: pr.source.branch.name,
           destination_branch: pr.destination.branch.name,
           author: pr.author?.display_name,

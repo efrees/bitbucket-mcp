@@ -97,9 +97,10 @@ only comment on existing ones. See §3 of
   - **Draft by default.** `draft` defaults to `true`; publishing takes an
     explicit `draft: false`. Realistic failure mode is "agent opens a
     half-baked PR that pings five humans"; the extra deliberation to
-    publish is cheap. Draft PRs need a workspace plan that supports
-    them — on plans that don't, Bitbucket returns an error and we
-    surface it unchanged rather than silently falling back.
+    publish is cheap. The result echoes the `draft` value Bitbucket
+    stored, so an agent can tell if the flag was ignored. Behavior on
+    plans without draft support is still unverified against the live
+    API.
   - **Same-repo only.** Source is always a branch in the repo named in
     the path. No `source.repository` field, so a compromised agent can't
     open a fork → main PR to trigger privileged CI.

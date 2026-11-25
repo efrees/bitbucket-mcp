@@ -280,10 +280,10 @@ Notes we rely on:
 - The source branch is resolved in the repo named in the path; we never
   send a `source.repository` field, so cross-repo (fork) PRs are
   unrepresentable through this tool.
-- `draft` is honored on workspace plans that support draft PRs; on
-  plans that don't, Bitbucket returns an error envelope which we
-  surface unchanged rather than silently falling back to a published
-  PR.
+- The response's `draft` boolean is the only way to tell a draft from a
+  published PR (both report `state: "OPEN"`). We return the stored
+  value, not the requested one. Whether Bitbucket rejects or ignores
+  `draft: true` on plans without draft support is unverified.
 - `close_source_branch`, `reviewers`, and other optional payload fields
   are deliberately not exposed yet — add them to the tool schema when
   an agent actually needs them.
