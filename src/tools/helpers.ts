@@ -62,7 +62,7 @@ export function encodePathSegment(value: string): string {
 export function requireWritesAllowed(ctx: ToolContext): void {
   if (!ctx.writesAllowed) {
     throw new Error(
-      "Write tools are disabled. Start the server with `bitbucket-mcp --allow-writes` to enable posting comments.",
+      "Write tools are disabled. Start the server with `bitbucket-mcp --allow-writes` to enable them.",
     );
   }
 }

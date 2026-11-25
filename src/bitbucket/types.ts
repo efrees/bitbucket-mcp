@@ -42,6 +42,8 @@ export interface PullRequest {
   readonly title: string;
   readonly description?: string;
   readonly state: "OPEN" | "MERGED" | "DECLINED" | "SUPERSEDED";
+  /** Draft PRs still report `state: "OPEN"`; this flag is the only signal. */
+  readonly draft?: boolean;
   readonly author?: BitbucketUser;
   readonly reviewers?: readonly BitbucketUser[];
   readonly participants?: readonly {

@@ -1,14 +1,31 @@
 # bitbucket-mcp
 
+> **Check the official server first.** The
+> [Atlassian MCP Server](https://developer.atlassian.com/cloud/rovo-mcp/)
+> (also called the Rovo MCP Server)
+> [supports Bitbucket Cloud](https://www.atlassian.com/blog/bitbucket/the-atlassian-rovo-mcp-server-now-supports-bitbucket-cloud)
+> for workspaces linked to an Atlassian organization, including reading,
+> creating and commenting on pull requests and reading pipeline logs.
+> Paid team workspaces
+> [are now linked](https://support.atlassian.com/bitbucket-cloud/kb/linking-your-bitbucket-cloud-workspace-to-an-atlassian-organization/),
+> so for most teams that's the place to start.
+>
+> This project is for setups where it doesn't fit: your org admin hasn't
+> enabled the Rovo MCP Server or the auth its Bitbucket tools need, your
+> workspace isn't linked, or you want a local stdio server that runs on
+> your own OAuth consumer and refuses writes unless started with
+> `--allow-writes`.
+
 An [MCP](https://modelcontextprotocol.io) server that gives autonomous agents
-the ability to read pull request context and reply to PR comments on
-**Bitbucket Cloud**. Intended use cases:
+the ability to read pull request context, reply to PR comments, and open
+pull requests on **Bitbucket Cloud**. Intended use cases:
 
 - Agents performing autonomous code review on a teammate's PR.
 - Agents acting on reviewer feedback left on the agent's own PR.
+- Agents opening a (draft) PR for work they just finished.
 
-Status: **Phase 3 feature-complete** on Windows, macOS, and Linux. OAuth
-(both modes) + seven read tools + three write tools are in place. See
+Status: **Phases 3 and 5 feature-complete** on Windows, macOS, and Linux. OAuth
+(both modes) + seven read tools + four write tools are in place. See
 [ROADMAP.md](ROADMAP.md) for remaining hardening work and
 [docs/bitbucket-api.md](docs/bitbucket-api.md) for the Bitbucket API
 surface this project depends on.
@@ -27,6 +44,7 @@ Available MCP tools:
 | `bitbucket_create_pr_comment` | Post a top-level PR comment *(write — requires `--allow-writes`)* |
 | `bitbucket_reply_to_pr_comment` | Reply to an existing comment *(write — requires `--allow-writes`)* |
 | `bitbucket_create_pr_inline_comment` | Line-anchored review comment *(write — requires `--allow-writes`)* |
+| `bitbucket_create_pull_request` | Open a same-repo PR, draft by default *(write — requires `--allow-writes`)* |
 
 ## Architecture at a glance
 
