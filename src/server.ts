@@ -33,7 +33,7 @@ export interface CreateServerResult {
 }
 
 export interface CreateServerOptions {
-  /** Allow write-side tools (posting comments, replies). Default: false. */
+  /** Allow write-side tools (posting comments and replies, opening PRs). Default: false. */
   readonly allowWrites?: boolean;
 }
 

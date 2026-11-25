@@ -45,7 +45,7 @@ export const inputSchema = {
     .string()
     .optional()
     .describe("Workspace slug. Defaults to BITBUCKET_MCP_WORKSPACE if set."),
-  repo_slug: z.string().describe("Repository slug (e.g. 'my-service')."),
+  repo_slug: z.string().min(1).describe("Repository slug (e.g. 'my-service')."),
   source_branch: z
     .string()
     .min(1)

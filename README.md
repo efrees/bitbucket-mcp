@@ -1,14 +1,15 @@
 # bitbucket-mcp
 
 An [MCP](https://modelcontextprotocol.io) server that gives autonomous agents
-the ability to read pull request context and reply to PR comments on
-**Bitbucket Cloud**. Intended use cases:
+the ability to read pull request context, reply to PR comments, and open
+pull requests on **Bitbucket Cloud**. Intended use cases:
 
 - Agents performing autonomous code review on a teammate's PR.
 - Agents acting on reviewer feedback left on the agent's own PR.
+- Agents opening a (draft) PR for work they just finished.
 
-Status: **Phase 3 feature-complete** on Windows, macOS, and Linux. OAuth
-(both modes) + seven read tools + three write tools are in place. See
+Status: **Phases 3 and 5 feature-complete** on Windows, macOS, and Linux. OAuth
+(both modes) + seven read tools + four write tools are in place. See
 [ROADMAP.md](ROADMAP.md) for remaining hardening work and
 [docs/bitbucket-api.md](docs/bitbucket-api.md) for the Bitbucket API
 surface this project depends on.
@@ -27,6 +28,7 @@ Available MCP tools:
 | `bitbucket_create_pr_comment` | Post a top-level PR comment *(write — requires `--allow-writes`)* |
 | `bitbucket_reply_to_pr_comment` | Reply to an existing comment *(write — requires `--allow-writes`)* |
 | `bitbucket_create_pr_inline_comment` | Line-anchored review comment *(write — requires `--allow-writes`)* |
+| `bitbucket_create_pull_request` | Open a same-repo PR, draft by default *(write — requires `--allow-writes`)* |
 
 ## Architecture at a glance
 
