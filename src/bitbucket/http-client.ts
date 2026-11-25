@@ -4,7 +4,8 @@
  * Thin wrapper around `fetch` that:
  *   - attaches the Bearer token from the auth session,
  *   - parses the Bitbucket error envelope into `BitbucketApiError`,
- *   - honors 429 Retry-After and retries transient 5xx with backoff,
+ *   - honors 429 Retry-After and retries transient 5xx with backoff
+ *     (5xx only for idempotent methods — never resends a POST),
  *   - refreshes the access token on 401 (when a refresher is provided).
  *
  * The refresher is injected rather than imported directly to avoid a
@@ -44,7 +45,10 @@ export interface RequestOptions {
 }
 
 export interface RetryPolicy {
-  /** Max retries for retriable statuses (429 / 5xx). Defaults to 3. */
+  /**
+   * Max retries for retriable statuses (429 for any method; 5xx for
+   * idempotent methods only). Defaults to 3.
+   */
   readonly maxRetries?: number;
   /** Initial backoff in ms when no Retry-After is supplied. Defaults to 500. */
   readonly baseBackoffMs?: number;
@@ -105,9 +109,11 @@ export class BitbucketHttpClient {
       response = await this.send(url, options, token);
     }
 
-    // 429 / 5xx retry loop with capped exponential backoff.
+    // 429 / 5xx retry loop with capped exponential backoff. Non-idempotent
+    // methods only retry on 429; see isRetriable.
+    const method = options.method ?? "GET";
     let attempt = 0;
-    while (isRetriable(response.status) && attempt < this.retry.maxRetries) {
+    while (isRetriable(response.status, method) && attempt < this.retry.maxRetries) {
       const waitMs = this.computeBackoff(response, attempt);
       log.warn("bitbucket: retriable error, backing off", {
         url,
@@ -206,8 +212,19 @@ export class BitbucketHttpClient {
   }
 }
 
-function isRetriable(status: number): boolean {
-  return status === 429 || (status >= 500 && status <= 599);
+const IDEMPOTENT_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD", "PUT", "DELETE"]);
+
+/**
+ * 429 means the request was rejected before processing, so any method can
+ * be resent. A 5xx (e.g. a gateway 502) can arrive after Bitbucket already
+ * applied the request, so only idempotent methods are resent — retrying a
+ * POST could create a duplicate comment, or fail PR creation with "already
+ * exists" while hiding that the first attempt succeeded.
+ */
+function isRetriable(status: number, method: string): boolean {
+  if (status === 429) return true;
+  if (status >= 500 && status <= 599) return IDEMPOTENT_METHODS.has(method);
+  return false;
 }
 
 /**
