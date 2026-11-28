@@ -87,7 +87,7 @@ export function pendingCommentFields(
     throw new Error(
       "Draft (pending) comments require authMode=authorization_code. Under client_credentials " +
         "the draft would belong to the OAuth consumer, which can't sign in to the Bitbucket web UI " +
-        "to publish it, and the API has no publish call, so nobody would ever see it. " +
+        "to publish it, and there is no known API call that publishes drafts, so it would stay hidden. " +
         "Omit `pending` to post a published comment.",
     );
   }

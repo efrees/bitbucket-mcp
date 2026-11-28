@@ -82,7 +82,7 @@ Goal: an agent can respond to feedback and leave its own line-anchored review.
 - [x] Structured error mapping: `BitbucketApiError` carries status + parsed envelope (`message` / `detail` / `code` / `requestId`); tool handlers render this as a pointed message rather than a stack trace.
 - [x] Rate-limit handling: up to 3 retries on 429 (any method) or 5xx (idempotent methods only — a POST is never resent after a 5xx); honors `Retry-After` (seconds or HTTP-date), falls back to capped exponential backoff with jitter.
 - [x] Logging: stderr-only JSON logger, level controlled by `BITBUCKET_MCP_LOG_LEVEL`.
-- [x] Test suite: `node:test` + `tsx` covering PKCE generation, Retry-After parsing, pagination flattening/truncation, and HTTP client retry + error-envelope behavior. Runs in CI.
+- [x] Test suite: `node:test` + `tsx` covering PKCE generation, Retry-After parsing, pagination flattening/truncation, HTTP client retry + error-envelope behavior, and tool handlers (via a fake `registerTool` + recording HTTP stub in `test/tool-harness.ts`). Runs in CI.
 - [ ] Named profiles: `--profile work` to maintain multiple authenticated identities (deferred).
 - [ ] Contract tests against recorded Bitbucket response fixtures (deferred — current unit suite covers the generic HTTP paths, but per-endpoint fixtures would catch schema drift earlier).
 - [ ] Live smoke test gated on env credentials for end-to-end verification against a real workspace (deferred).
