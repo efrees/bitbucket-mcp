@@ -314,7 +314,9 @@ Each comment object includes:
   "inline": {                         // present only for inline comments
     "path": "src/foo.ts",
     "to":   42,                       // line number on the NEW side
-    "from": null                      // line number on the OLD side
+    "from": null,                     // line number on the OLD side
+    "start_to":   null,               // first line of a multi-line range
+    "start_from": null                //   (same side as to / from)
   },
   "pullrequest": { "id": 99 }
 }

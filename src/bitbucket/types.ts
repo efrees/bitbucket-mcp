@@ -76,6 +76,10 @@ export interface PullRequestComment {
     readonly path: string;
     readonly to?: number | null;
     readonly from?: number | null;
+    /** First line of a multi-line range on the new side (`to` is the last). */
+    readonly start_to?: number | null;
+    /** First line of a multi-line range on the old side (`from` is the last). */
+    readonly start_from?: number | null;
   };
   readonly pullrequest?: { readonly id: number };
   readonly links?: BitbucketLinks;
