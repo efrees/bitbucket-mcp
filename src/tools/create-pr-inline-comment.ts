@@ -18,6 +18,8 @@ import {
   encodePathSegment,
   errorResult,
   jsonResult,
+  pendingCommentFields,
+  pendingInput,
   requireWritesAllowed,
   resolveWorkspace,
 } from "./helpers.js";
@@ -43,6 +45,7 @@ export const inputSchema = {
   ),
   line: z.number().int().positive().describe("Line number on the chosen side."),
   body: z.string().min(1).describe("Comment body (raw Markdown)."),
+  pending: pendingInput,
 };
 
 export function register(server: McpServer, ctx: ToolContext): void {
@@ -51,13 +54,14 @@ export function register(server: McpServer, ctx: ToolContext): void {
     {
       title: "Create inline PR comment",
       description:
-        "Post a line-anchored review comment. Specify `side` ('new' | 'old') and `line`; exactly one anchor is attached.",
+        "Post a line-anchored review comment. Specify `side` ('new' | 'old') and `line`; exactly one anchor is attached. Pass pending:true to leave it as a draft only you can see until you publish your review in the web UI (authorization_code mode only).",
       inputSchema,
     },
     async (args) => {
       try {
         requireWritesAllowed(ctx);
         const workspace = resolveWorkspace(ctx, args.workspace);
+        const pending = pendingCommentFields(ctx, args.pending);
         const path = `/repositories/${encodePathSegment(workspace)}/${encodePathSegment(args.repo_slug)}/pullrequests/${args.pull_request_id}/comments`;
 
         const inline: { path: string; to?: number; from?: number } = { path: args.path };
@@ -69,6 +73,7 @@ export function register(server: McpServer, ctx: ToolContext): void {
           jsonBody: {
             content: { raw: args.body },
             inline,
+            ...pending,
           },
         });
 
@@ -77,6 +82,9 @@ export function register(server: McpServer, ctx: ToolContext): void {
           path: comment.inline?.path ?? args.path,
           side: args.side,
           line: args.line,
+          // Echo what Bitbucket stored, not what we requested, so the agent
+          // can confirm whether the comment really is a hidden draft.
+          pending: comment.pending ?? false,
           author: comment.user.display_name,
           created_on: comment.created_on,
           url: comment.links?.html?.href,

@@ -371,6 +371,33 @@ Rules:
 - `path` must match the path as it appears in the diff (post-rename for
   renamed files — uses the new name).
 
+### Draft (pending) comments
+
+Any of the three POST shapes above accepts `"pending": true`, which
+creates the comment as a draft review comment:
+
+```json
+{
+  "content": { "raw": "Nit: prefer a guard clause here." },
+  "inline":  { "path": "src/parser.ts", "to": 118 },
+  "pending": true
+}
+```
+
+- The response (201) carries `"pending": true`. Published comments carry
+  `"pending": false`.
+- A draft is visible only to its author, both in the web UI and through
+  the API (see the list endpoint above).
+- **Publishing is web-UI only.** The author publishes all their drafts
+  with **Finish Review** on the PR page. The public API has no publish
+  or submit-review endpoint, and `PUT .../comments/{id}` rejects
+  `pending` (`"extra keys not allowed"`). Editing a draft's `content`
+  via PUT works and leaves it pending.
+- Under `client_credentials` the draft would belong to the OAuth
+  consumer, which can't sign in to the web UI to publish it. The
+  comment tools therefore accept `pending` only in `authorization_code`
+  mode.
+
 ---
 
 ## 5. Identity
