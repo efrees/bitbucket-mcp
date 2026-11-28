@@ -177,6 +177,17 @@ strong new evidence:
   (`bitbucket_login`) that runs the loopback browser flow in-process.
   Don't burn time trying to wire stdio into the client-side OAuth UX.
 
+- **Pending (draft) comments can be created but not published via the
+  API.** `pending: true` on the comment POST works in both auth modes
+  and round-trips, but there is no publish/submit-review endpoint, and
+  `PUT .../comments/{id}` rejects `pending` as an extra key. Drafts are
+  author-only: another identity gets neither a list entry nor a direct
+  GET (404). The list endpoint 400s on `q=pending=true`. Only the web
+  UI's Finish Review publishes, so a `client_credentials` (consumer)
+  draft is stranded — that's why the tools refuse `pending` in that
+  mode. Not yet tested: whether API approve/request-changes publishes
+  drafts. Verified live 2026-11-27.
+
 - **Windows DPAPI via PowerShell subprocess, not a native node module.**
   Spawning `powershell.exe` with a short
   `System.Security.Cryptography.ProtectedData` script is ~100ms per op,

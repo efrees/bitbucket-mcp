@@ -44,7 +44,7 @@ export function register(server: McpServer, ctx: ToolContext): void {
     {
       title: "List PR comments",
       description:
-        "List all comments on a PR (top-level, replies, and inline). Includes parent_id for client-side threading and the inline anchor (path + line) for review comments.",
+        "List all comments on a PR (top-level, replies, and inline). Includes parent_id for client-side threading, the inline anchor (path + line, or start/end lines for a multi-line range) for review comments, and `pending` (true for your own unpublished draft comments, which nobody else can see yet).",
       inputSchema,
     },
     async (args) => {
@@ -72,9 +72,16 @@ export function register(server: McpServer, ctx: ToolContext): void {
                 path: c.inline.path,
                 to: c.inline.to ?? null,
                 from: c.inline.from ?? null,
+                // Set only on multi-line comments: the first line of the
+                // range, with `to` / `from` as its last line.
+                start_to: c.inline.start_to ?? null,
+                start_from: c.inline.start_from ?? null,
               }
             : null,
           deleted: c.deleted,
+          // Drafts are only returned to their author, mixed in with
+          // published comments; without this flag the two look identical.
+          pending: c.pending ?? false,
           created_on: c.created_on,
           updated_on: c.updated_on,
           url: c.links?.html?.href,

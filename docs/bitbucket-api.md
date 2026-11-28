@@ -309,17 +309,26 @@ Each comment object includes:
   "created_on": "...",
   "updated_on": "...",
   "deleted": false,
+  "pending": false,                   // true for an unpublished draft (see below)
   "parent": { "id": 12340 },          // present only for replies
   "inline": {                         // present only for inline comments
     "path": "src/foo.ts",
     "to":   42,                       // line number on the NEW side
-    "from": null                      // line number on the OLD side
+    "from": null,                     // line number on the OLD side
+    "start_to":   null,               // first line of a multi-line range
+    "start_from": null                //   (same side as to / from)
   },
   "pullrequest": { "id": 99 }
 }
 ```
 
 Threading is reconstructed client-side via `parent.id`.
+
+Draft (`pending: true`) comments are returned only to their author,
+interleaved with published ones. Other identities don't see them in the
+list, and a direct `GET .../comments/{id}` returns 404 for them. The list
+endpoint rejects `q=pending=true` with a 400, so drafts can't be
+filtered server-side.
 
 ### Create a top-level comment
 
@@ -363,6 +372,51 @@ Rules:
 - Use exactly one of `to` or `from` per comment, not both.
 - `path` must match the path as it appears in the diff (post-rename for
   renamed files — uses the new name).
+
+**Multi-line ranges.** Add `start_to` (with `to`) or `start_from` (with
+`from`) to anchor the comment to a range of lines. The `start_*` field
+is the first line, and `to` / `from` is the last:
+
+```json
+{
+  "content": { "raw": "This whole block can collapse into one map()." },
+  "inline": { "path": "src/parser.ts", "start_to": 110, "to": 118 }
+}
+```
+
+- The start must be ≤ the end (`start == end` is accepted). Otherwise
+  the response is 400 `"start_to" must be less than or equal to "to"`.
+- Start and end must be on the same side. Pairing `start_from` with `to`
+  gets 400 `"from" must be provided if "start_from" is provided`.
+- Bitbucket doesn't check the range against the diff. A start line
+  outside any hunk is accepted as-is.
+
+### Draft (pending) comments
+
+Any of the three POST shapes above accepts `"pending": true`, which
+creates the comment as a draft review comment:
+
+```json
+{
+  "content": { "raw": "Nit: prefer a guard clause here." },
+  "inline":  { "path": "src/parser.ts", "to": 118 },
+  "pending": true
+}
+```
+
+- The response (201) carries `"pending": true`. Published comments carry
+  `"pending": false`.
+- A draft is visible only to its author, both in the web UI and through
+  the API (see the list endpoint above).
+- **Publishing is web-UI only.** The author publishes all their drafts
+  with **Finish Review** on the PR page. The public API has no publish
+  or submit-review endpoint, and `PUT .../comments/{id}` rejects
+  `pending` (`"extra keys not allowed"`). Editing a draft's `content`
+  via PUT works and leaves it pending.
+- Under `client_credentials` the draft would belong to the OAuth
+  consumer, which can't sign in to the web UI to publish it. The
+  comment tools therefore accept `pending` only in `authorization_code`
+  mode.
 
 ---
 

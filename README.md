@@ -38,12 +38,18 @@ Available MCP tools:
 | `bitbucket_get_pull_request` | Full PR metadata, reviewers, approval state |
 | `bitbucket_get_pull_request_diff` | Unified diff text (byte-capped) |
 | `bitbucket_get_pull_request_diffstat` | Per-file change summary |
-| `bitbucket_list_pull_request_comments` | Flat comment list with inline anchors and `parent_id` |
+| `bitbucket_list_pull_request_comments` | Flat comment list with inline anchors, `parent_id`, and draft (`pending`) state |
 | `bitbucket_list_pull_request_statuses` | Build/CI statuses with a rolled-up overall state |
 | `bitbucket_get_pipeline_failures` | Failing tests and sanitized log tail for a failed Bitbucket Pipelines build *(only offered when the consumer has Pipelines: Read)* |
-| `bitbucket_create_pr_comment` | Post a top-level PR comment *(write — requires `--allow-writes`)* |
-| `bitbucket_reply_to_pr_comment` | Reply to an existing comment *(write — requires `--allow-writes`)* |
-| `bitbucket_create_pr_inline_comment` | Line-anchored review comment *(write — requires `--allow-writes`)* |
+| `bitbucket_create_pr_comment` | Post a top-level PR comment, optionally as a draft *(write — requires `--allow-writes`)* |
+| `bitbucket_reply_to_pr_comment` | Reply to an existing comment, optionally as a draft *(write — requires `--allow-writes`)* |
+| `bitbucket_create_pr_inline_comment` | Line-anchored review comment on one line or a range (`start_line`), optionally as a draft *(write — requires `--allow-writes`)* |
+
+The three comment tools take an optional `pending: true` (default
+`false`) that posts the comment as a draft only you can see. Publish
+your drafts with **Finish Review** on the pull request in Bitbucket.
+Drafts need `authorization_code` mode, because in `client_credentials`
+mode there is no one who can sign in to publish them.
 | `bitbucket_create_pull_request` | Open a same-repo PR, draft by default *(write — requires `--allow-writes`)* |
 
 ## Architecture at a glance

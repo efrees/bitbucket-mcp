@@ -73,6 +73,8 @@ Goal: an agent can respond to feedback and leave its own line-anchored review.
 - [x] `bitbucket_reply_to_pr_comment` — post a reply scoped to a parent comment id
 - [x] `bitbucket_create_pr_comment` — post a non-anchored top-level comment
 - [x] `bitbucket_create_pr_inline_comment` — anchor to `path` + (side, line); schema makes the "exactly one side" API rule unrepresentable-as-invalid
+- [x] Multi-line inline comments: optional `start_line` on `bitbucket_create_pr_inline_comment`, on the same `side` as `line` (so Bitbucket's same-side rule can't be violated); `start_line > line` is refused before sending. The list tool passes `start_to` / `start_from` through.
+- [x] Draft (pending) comments: optional `pending` on all three comment tools (default `false`), so an agent can stage review comments for a human to publish with **Finish Review**. Accepted only in `authorization_code` mode; under `client_credentials` the draft would belong to the consumer and nobody could publish it. Results echo the stored `pending` value, and the list tool reports it per comment. See [docs/bitbucket-api.md](docs/bitbucket-api.md) §4.
 - [x] Permission gate: `--allow-writes` startup flag is required; `requireWritesAllowed` fails fast before any network call. Scope-level gate (verifying the token actually has `pullrequest:write`) remains nice-to-have but not blocking.
 
 ## Phase 4 — Hardening & ergonomics
@@ -80,7 +82,7 @@ Goal: an agent can respond to feedback and leave its own line-anchored review.
 - [x] Structured error mapping: `BitbucketApiError` carries status + parsed envelope (`message` / `detail` / `code` / `requestId`); tool handlers render this as a pointed message rather than a stack trace.
 - [x] Rate-limit handling: up to 3 retries on 429 (any method) or 5xx (idempotent methods only — a POST is never resent after a 5xx); honors `Retry-After` (seconds or HTTP-date), falls back to capped exponential backoff with jitter.
 - [x] Logging: stderr-only JSON logger, level controlled by `BITBUCKET_MCP_LOG_LEVEL`.
-- [x] Test suite: `node:test` + `tsx` covering PKCE generation, Retry-After parsing, pagination flattening/truncation, and HTTP client retry + error-envelope behavior. Runs in CI.
+- [x] Test suite: `node:test` + `tsx` covering PKCE generation, Retry-After parsing, pagination flattening/truncation, HTTP client retry + error-envelope behavior, and tool handlers (via a fake `registerTool` + recording HTTP stub in `test/tool-harness.ts`). Runs in CI.
 - [ ] Named profiles: `--profile work` to maintain multiple authenticated identities (deferred).
 - [ ] Contract tests against recorded Bitbucket response fixtures (deferred — current unit suite covers the generic HTTP paths, but per-endpoint fixtures would catch schema drift earlier).
 - [ ] Live smoke test gated on env credentials for end-to-end verification against a real workspace (deferred).

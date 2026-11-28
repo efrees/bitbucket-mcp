@@ -9,9 +9,12 @@
  *   caller didn't specify one, or throws a clear error.
  * - `encodePathSegment` URL-encodes repo_slug / workspace values that may
  *   contain characters like `/` or spaces.
+ * - `pendingInput` / `pendingCommentFields` implement the shared draft
+ *   (pending) option of the comment-posting tools.
  */
 
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
 import { BitbucketApiError } from "../errors.js";
 import type { ToolContext } from "./index.js";
 
@@ -51,6 +54,44 @@ export function resolveWorkspace(ctx: ToolContext, supplied?: string | undefined
 
 export function encodePathSegment(value: string): string {
   return encodeURIComponent(value);
+}
+
+/**
+ * Shared `pending` input for the comment-posting tools. Bitbucket keeps a
+ * pending comment as a draft visible only to its author until they press
+ * "Finish Review" in the web UI. The public API can set `pending` on
+ * create but has no way to publish a draft (PUT rejects the field).
+ */
+export const pendingInput = z
+  .boolean()
+  .optional()
+  .describe(
+    "Post as a draft (pending) review comment: only you can see it until you publish your review with 'Finish Review' in the Bitbucket web UI. The API cannot publish it for you. Defaults to false (published immediately). Requires authMode=authorization_code. The result's `pending` field reports what Bitbucket stored.",
+  );
+
+/**
+ * Turn a tool's `pending` argument into the fields to merge into the
+ * comment POST body. Omitted or false sends nothing, leaving the request
+ * exactly as it was before drafts were supported.
+ *
+ * Refuses `pending: true` under client_credentials: the draft would belong
+ * to the OAuth consumer, which can't sign in to the web UI to publish it,
+ * so it would sit invisible to everyone. Throws before any network call.
+ */
+export function pendingCommentFields(
+  ctx: ToolContext,
+  requested: boolean | undefined,
+): { pending?: true } {
+  if (requested !== true) return {};
+  if (ctx.config.authMode !== "authorization_code") {
+    throw new Error(
+      "Draft (pending) comments require authMode=authorization_code. Under client_credentials " +
+        "the draft would belong to the OAuth consumer, which can't sign in to the Bitbucket web UI " +
+        "to publish it, and there is no known API call that publishes drafts, so it would stay hidden. " +
+        "Omit `pending` to post a published comment.",
+    );
+  }
+  return { pending: true };
 }
 
 /**
