@@ -66,6 +66,11 @@ export interface PullRequestComment {
   readonly created_on: string;
   readonly updated_on: string;
   readonly deleted: boolean;
+  /**
+   * True for an unpublished draft (a "pending" review comment). Only the
+   * author can see one; Bitbucket returns `false` on published comments.
+   */
+  readonly pending?: boolean;
   readonly parent?: { readonly id: number };
   readonly inline?: {
     readonly path: string;

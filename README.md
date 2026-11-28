@@ -38,7 +38,7 @@ Available MCP tools:
 | `bitbucket_get_pull_request` | Full PR metadata, reviewers, approval state |
 | `bitbucket_get_pull_request_diff` | Unified diff text (byte-capped) |
 | `bitbucket_get_pull_request_diffstat` | Per-file change summary |
-| `bitbucket_list_pull_request_comments` | Flat comment list with inline anchors and `parent_id` |
+| `bitbucket_list_pull_request_comments` | Flat comment list with inline anchors, `parent_id`, and draft (`pending`) state |
 | `bitbucket_list_pull_request_statuses` | Build/CI statuses with a rolled-up overall state |
 | `bitbucket_get_pipeline_failures` | Failing tests and sanitized log tail for a failed Bitbucket Pipelines build *(only offered when the consumer has Pipelines: Read)* |
 | `bitbucket_create_pr_comment` | Post a top-level PR comment *(write — requires `--allow-writes`)* |

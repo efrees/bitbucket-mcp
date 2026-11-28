@@ -309,6 +309,7 @@ Each comment object includes:
   "created_on": "...",
   "updated_on": "...",
   "deleted": false,
+  "pending": false,                   // true for an unpublished draft (see below)
   "parent": { "id": 12340 },          // present only for replies
   "inline": {                         // present only for inline comments
     "path": "src/foo.ts",
@@ -320,6 +321,12 @@ Each comment object includes:
 ```
 
 Threading is reconstructed client-side via `parent.id`.
+
+Draft (`pending: true`) comments are returned only to their author,
+interleaved with published ones. Other identities don't see them in the
+list, and a direct `GET .../comments/{id}` returns 404 for them. The list
+endpoint rejects `q=pending=true` with a 400, so drafts can't be
+filtered server-side.
 
 ### Create a top-level comment
 
