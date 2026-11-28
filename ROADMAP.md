@@ -73,6 +73,7 @@ Goal: an agent can respond to feedback and leave its own line-anchored review.
 - [x] `bitbucket_reply_to_pr_comment` — post a reply scoped to a parent comment id
 - [x] `bitbucket_create_pr_comment` — post a non-anchored top-level comment
 - [x] `bitbucket_create_pr_inline_comment` — anchor to `path` + (side, line); schema makes the "exactly one side" API rule unrepresentable-as-invalid
+- [x] Multi-line inline comments: optional `start_line` on `bitbucket_create_pr_inline_comment`, on the same `side` as `line` (so Bitbucket's same-side rule can't be violated); `start_line > line` is refused before sending. The list tool passes `start_to` / `start_from` through.
 - [x] Draft (pending) comments: optional `pending` on all three comment tools (default `false`), so an agent can stage review comments for a human to publish with **Finish Review**. Accepted only in `authorization_code` mode; under `client_credentials` the draft would belong to the consumer and nobody could publish it. Results echo the stored `pending` value, and the list tool reports it per comment. See [docs/bitbucket-api.md](docs/bitbucket-api.md) §4.
 - [x] Permission gate: `--allow-writes` startup flag is required; `requireWritesAllowed` fails fast before any network call. Scope-level gate (verifying the token actually has `pullrequest:write`) remains nice-to-have but not blocking.
 

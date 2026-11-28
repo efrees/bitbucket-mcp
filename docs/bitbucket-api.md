@@ -373,6 +373,24 @@ Rules:
 - `path` must match the path as it appears in the diff (post-rename for
   renamed files — uses the new name).
 
+**Multi-line ranges.** Add `start_to` (with `to`) or `start_from` (with
+`from`) to anchor the comment to a range of lines. The `start_*` field
+is the first line, and `to` / `from` is the last:
+
+```json
+{
+  "content": { "raw": "This whole block can collapse into one map()." },
+  "inline": { "path": "src/parser.ts", "start_to": 110, "to": 118 }
+}
+```
+
+- The start must be ≤ the end (`start == end` is accepted). Otherwise
+  the response is 400 `"start_to" must be less than or equal to "to"`.
+- Start and end must be on the same side. Pairing `start_from` with `to`
+  gets 400 `"from" must be provided if "start_from" is provided`.
+- Bitbucket doesn't check the range against the diff. A start line
+  outside any hunk is accepted as-is.
+
 ### Draft (pending) comments
 
 Any of the three POST shapes above accepts `"pending": true`, which

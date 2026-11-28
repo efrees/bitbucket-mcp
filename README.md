@@ -43,7 +43,7 @@ Available MCP tools:
 | `bitbucket_get_pipeline_failures` | Failing tests and sanitized log tail for a failed Bitbucket Pipelines build *(only offered when the consumer has Pipelines: Read)* |
 | `bitbucket_create_pr_comment` | Post a top-level PR comment, optionally as a draft *(write — requires `--allow-writes`)* |
 | `bitbucket_reply_to_pr_comment` | Reply to an existing comment, optionally as a draft *(write — requires `--allow-writes`)* |
-| `bitbucket_create_pr_inline_comment` | Line-anchored review comment, optionally as a draft *(write — requires `--allow-writes`)* |
+| `bitbucket_create_pr_inline_comment` | Line-anchored review comment on one line or a range (`start_line`), optionally as a draft *(write — requires `--allow-writes`)* |
 
 The three comment tools take an optional `pending: true` (default
 `false`) that posts the comment as a draft only you can see. Publish
